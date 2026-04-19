@@ -20,6 +20,7 @@ import { db, Variant, Product } from "@/lib/db";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { ReceiptModal } from "@/components/ReceiptModal";
+import { GstInvoiceModal } from "@/components/GstInvoiceModal";
 
 interface CartItem extends Variant {
   qty: number;
@@ -38,9 +39,13 @@ export default function POS() {
   const [lastSale, setLastSale] = useState<any>(null);
   const [lastItems, setLastItems] = useState<any[]>([]);
 
+  const [isGstModalOpen, setIsGstModalOpen] = useState(false);
+  const [gstInitialItems, setGstInitialItems] = useState<any[]>([]);
+
   const catalogData = useLiveQuery(async () => {
-    const prods = await db.products.toArray();
-    const vars = await db.variants.toArray();
+    // Production Fix: Filter out deleted products and variants
+    const prods = await db.products.where('is_deleted').equals(0).toArray();
+    const vars = await db.variants.where('is_deleted').equals(0).toArray();
     
     return vars.map(v => {
       const p = prods.find(p => p.id === v.product_id);
@@ -50,8 +55,8 @@ export default function POS() {
         category: p?.category || "Uncategorized",
         image: v.image_url || p?.image_url
       };
-    });
-  });
+    }).filter(v => v.productName !== "Unknown Product");
+  }, []);
 
   if (!catalogData) {
     return (
@@ -119,7 +124,7 @@ export default function POS() {
     
     try {
       const saleId = uuidv4();
-      const saleDate = new Date().toISOString();
+      const now = new Date().toISOString();
       
       await db.transaction('rw', db.sales, db.sale_items, db.variants, async () => {
         await db.sales.add({
@@ -127,8 +132,10 @@ export default function POS() {
           total_amount: finalTotal,
           discount: actualDiscount,
           payment_method: paymentMode,
-          date: saleDate,
-          sync_status: 'pending'
+          date: now,
+          updated_at: now,
+          sync_status: 'pending',
+          is_deleted: 0
         });
 
         for (const item of cart) {
@@ -138,12 +145,18 @@ export default function POS() {
             variant_id: item.id,
             quantity: item.qty,
             unit_price: item.base_price,
-            subtotal: item.base_price * item.qty
+            subtotal: item.base_price * item.qty,
+            updated_at: now,
+            is_deleted: 0
           });
           
           const variant = await db.variants.get(item.id);
           if (variant) {
-            await db.variants.update(item.id, { stock: variant.stock - item.qty });
+            // Production Fix: Reduce stock and update timestamp
+            await db.variants.update(item.id, { 
+              stock: variant.stock - item.qty,
+              updated_at: now 
+            });
           }
         }
       });
@@ -153,7 +166,7 @@ export default function POS() {
         total: finalTotal,
         discount: actualDiscount,
         paymentMethod: paymentMode,
-        date: saleDate
+        date: now
       });
       setLastItems([...cart]);
       setShowReceipt(true);
@@ -174,6 +187,15 @@ export default function POS() {
         onClose={() => setShowReceipt(false)} 
         saleData={lastSale || {}} 
         items={lastItems} 
+        onGenerateGst={(items) => {
+          setGstInitialItems(items);
+          setIsGstModalOpen(true);
+        }}
+      />
+      <GstInvoiceModal 
+        isOpen={isGstModalOpen} 
+        onClose={() => setIsGstModalOpen(false)} 
+        initialItems={gstInitialItems}
       />
       <Card className="flex-1 flex flex-col min-h-0 border-none shadow-2xl shadow-zinc-200/50 bg-white/70 backdrop-blur-3xl rounded-[2.5rem] overflow-hidden">
         <div className="p-6 bg-zinc-50/50 border-b border-zinc-100 flex gap-4 items-center relative z-20">
@@ -181,11 +203,55 @@ export default function POS() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
             <Input 
               placeholder="Search products or scan..." 
-              className="pl-12 h-14 text-lg bg-white border-zinc-200 shadow-xl shadow-zinc-100/50 rounded-2xl focus-visible:ring-zinc-900"
+              className="pl-12 h-14 text-lg bg-white border-zinc-200 shadow-xl shadow-zinc-100/50 rounded-2xl focus-visible:ring-zinc-900 hidden md:block"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
             />
+
+            {/* Mobile-Only Dropdown Trigger */}
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger render={
+                  <Button variant="outline" className="w-full h-14 rounded-2xl border-zinc-200 bg-white shadow-xl flex justify-between px-4 font-black text-zinc-900 tracking-tight">
+                    <div className="flex items-center gap-3">
+                      <Search className="h-5 w-5 text-zinc-400" />
+                      <span>BROWSE CATALOG...</span>
+                    </div>
+                  </div >
+                } />
+                <DropdownMenuContent className="w-[calc(100vw-3rem)] max-h-[70vh] overflow-y-auto rounded-[2rem] p-3 shadow-2xl border-zinc-100 bg-white/95 backdrop-blur-3xl z-[500] flex flex-col gap-2">
+                   <div className="sticky top-0 bg-white/50 backdrop-blur-sm p-1 z-10">
+                     <Input 
+                        placeholder="Search items..." 
+                        className="h-12 rounded-xl border-zinc-100 bg-zinc-50 font-bold"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                     />
+                   </div>
+                   {filteredCatalog.map(item => (
+                     <DropdownMenuItem 
+                        key={item.id} 
+                        onClick={() => addToCart(item)}
+                        className="rounded-2xl p-3 flex items-center gap-4 hover:bg-zinc-50 transition-all cursor-pointer"
+                     >
+                       <div className="h-16 w-16 rounded-xl bg-zinc-100 shrink-0 overflow-hidden shadow-inner flex items-center justify-center">
+                         {item.image ? (
+                           <img src={item.image} className="w-full h-full object-cover mix-blend-multiply" />
+                         ) : (
+                           <Package className="h-6 w-6 text-zinc-300" />
+                         )}
+                       </div>
+                       <div className="flex-1 min-w-0">
+                         <div className="font-black text-zinc-900 truncate uppercase tracking-tight">{item.productName}</div>
+                         <div className="text-[10px] font-black text-zinc-400 uppercase mt-0.5">{item.size} &bull; <span className="text-emerald-600">{item.stock} IN STOCK</span></div>
+                         <div className="font-black text-zinc-900 mt-1">₹{item.base_price}</div>
+                       </div>
+                     </DropdownMenuItem>
+                   ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             
             <AnimatePresence>
               {search.trim().length > 0 && (

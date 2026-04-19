@@ -45,14 +45,15 @@ export default function Inventory() {
   const [newProductCategory, setNewProductCategory] = useState("Buckets");
 
   const productsData = useLiveQuery(async () => {
-    const prods = await db.products.toArray();
-    const vars = await db.variants.toArray();
+    // Production Fix: Filter out deleted items
+    const prods = await db.products.where('is_deleted').equals(0).toArray();
+    const vars = await db.variants.where('is_deleted').equals(0).toArray();
     
     return prods.map(p => ({
       ...p,
       variants: vars.filter(v => v.product_id === p.id)
     }));
-  });
+  }, []);
 
   if (!productsData) {
     return (
@@ -79,27 +80,17 @@ export default function Inventory() {
     if (!confirm(`Are you sure you want to delete ${product.name} and all its variants?`)) return;
     
     try {
-      const variants = await db.variants.where({ product_id: product.id }).toArray();
-      const pathsToRemove = variants
-        .map(v => v.image_url ? v.image_url.split('/product-images/')[1] : null)
-        .filter(Boolean) as string[];
-        
-      if (product.image_url) {
-        const pPath = product.image_url.split('/product-images/')[1];
-        if (pPath && !pathsToRemove.includes(pPath)) {
-          pathsToRemove.push(pPath);
-        }
-      }
-
-      if (pathsToRemove.length > 0) {
-        await supabase.storage.from('product-images').remove(pathsToRemove);
-      }
-
+      const now = new Date().toISOString();
       await db.transaction('rw', db.products, db.variants, async () => {
-        await db.variants.where({ product_id: product.id }).delete();
-        await db.products.delete(product.id);
+        // Production logic: Soft delete so it syncs deletion to other devices
+        await db.products.update(product.id, { is_deleted: 1, updated_at: now });
+        
+        const vars = await db.variants.where({ product_id: product.id }).toArray();
+        for (const v of vars) {
+           await db.variants.update(v.id, { is_deleted: 1, updated_at: now });
+        }
       });
-      toast.success("Product and variants deleted successfully");
+      toast.success("Product deleted successfully");
     } catch (e) {
       toast.error("Failed to delete product");
     }
@@ -109,13 +100,8 @@ export default function Inventory() {
     if (!confirm(`Are you sure you want to delete variant: ${variant.size}?`)) return;
     
     try {
-      if (variant.image_url) {
-        const path = variant.image_url.split('/product-images/')[1];
-        if (path) {
-          await supabase.storage.from('product-images').remove([path]);
-        }
-      }
-      await db.variants.delete(variant.id);
+      // Soft delete for sync reliability
+      await db.variants.update(variant.id, { is_deleted: 1, updated_at: new Date().toISOString() });
       toast.success("Variant deleted successfully");
     } catch (e) {
       toast.error("Failed to delete variant");
@@ -147,13 +133,14 @@ export default function Inventory() {
           
           const prod = await db.products.get(productId);
           if (prod && !prod.image_url) {
-            await db.products.update(productId, { image_url: finalImageUrl });
+            await db.products.update(productId, { image_url: finalImageUrl, updated_at: new Date().toISOString() });
           }
         }
       } catch (e) { console.error(e); }
     }
     
     try {
+      const now = new Date().toISOString();
       await db.variants.add({
         id: uuidv4(),
         product_id: productId,
@@ -164,7 +151,9 @@ export default function Inventory() {
         msp: parseInt(newMsp),
         base_price: parseInt(newPrice),
         image_url: finalImageUrl,
-        created_at: new Date().toISOString()
+        created_at: now,
+        updated_at: now,
+        is_deleted: 0
       });
       toast.success("Variant added!");
       setNewSize(""); setNewStock(""); setNewPrice(""); setNewMsp(""); setNewImageUrl("");
@@ -177,7 +166,10 @@ export default function Inventory() {
   const handleAddStock = async (variantId: string, currentStock: number) => {
     const qty = prompt("How many units received?");
     if (qty && !isNaN(Number(qty))) {
-      await db.variants.update(variantId, { stock: currentStock + Number(qty) });
+      await db.variants.update(variantId, { 
+        stock: currentStock + Number(qty),
+        updated_at: new Date().toISOString()
+      });
       toast.success("Stock updated");
     }
   };
@@ -187,14 +179,26 @@ export default function Inventory() {
     if (qty && !isNaN(Number(qty))) {
       const num = Number(qty);
       if (num > currentStock) { toast.error("Too much!"); return; }
-      await db.variants.update(variantId, { stock: currentStock - num, dented_stock: currentDented + num });
+      await db.variants.update(variantId, { 
+        stock: currentStock - num, 
+        dented_stock: currentDented + num,
+        updated_at: new Date().toISOString()
+      });
       toast.success("Marked damaged");
     }
   };
 
   const handleAddMasterProduct = async () => {
     if (!newProductName) { toast.error("Enter product name"); return; }
-    await db.products.add({ id: uuidv4(), name: newProductName, category: newProductCategory, created_at: new Date().toISOString() });
+    const now = new Date().toISOString();
+    await db.products.add({ 
+      id: uuidv4(), 
+      name: newProductName, 
+      category: newProductCategory, 
+      created_at: now,
+      updated_at: now,
+      is_deleted: 0 
+    });
     toast.success("Master Product added!");
     setNewProductName("");
   };

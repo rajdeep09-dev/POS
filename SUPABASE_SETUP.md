@@ -1,12 +1,14 @@
-# Supabase Database Setup for Joy Ram Steel
+# Supabase Database Setup for Joy Ram Steel (Production)
 
-To fix the sync issues across different browsers, follow these steps exactly:
+To ensure reliable syncing across multiple devices, follow these steps to update your database schema.
 
 ### 1. Execute the SQL Schema
 Copy the code block below and paste it into your **Supabase Dashboard** -> **SQL Editor** and click **Run**.
 
+*Note: This script uses `DROP TABLE IF EXISTS` to ensure a clean start with the new `updated_at` and `is_deleted` fields. Back up any real data if necessary.*
+
 ```sql
--- CLEANUP: Removes existing tables to ensure a fresh, correct sync setup.
+-- CLEANUP
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS sales;
 DROP TABLE IF EXISTS variants;
@@ -22,7 +24,9 @@ CREATE TABLE products (
     category TEXT NOT NULL,
     image_url TEXT,
     gst_rate NUMERIC DEFAULT 18,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 2. Variants
@@ -37,7 +41,9 @@ CREATE TABLE variants (
     msp NUMERIC NOT NULL DEFAULT 0,
     barcode TEXT,
     image_url TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 3. Customers
@@ -47,7 +53,9 @@ CREATE TABLE customers (
     phone TEXT NOT NULL,
     balance NUMERIC NOT NULL DEFAULT 0,
     last_tx TEXT NOT NULL,
-    status TEXT NOT NULL
+    status TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 4. Sales
@@ -61,6 +69,8 @@ CREATE TABLE sales (
     split_khata NUMERIC,
     customer_id TEXT REFERENCES customers(id),
     date TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
 
@@ -71,7 +81,9 @@ CREATE TABLE sale_items (
     variant_id TEXT REFERENCES variants(id),
     quantity NUMERIC NOT NULL,
     unit_price NUMERIC NOT NULL,
-    subtotal NUMERIC NOT NULL
+    subtotal NUMERIC NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 6. Bills
@@ -81,7 +93,9 @@ CREATE TABLE bills (
     date TEXT NOT NULL,
     amount NUMERIC NOT NULL,
     status TEXT NOT NULL,
-    image_url TEXT
+    image_url TEXT,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 7. Khata Transactions
@@ -94,20 +108,18 @@ CREATE TABLE khata_transactions (
     date TEXT NOT NULL,
     proof_image_url TEXT,
     notes TEXT,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
 ```
 
 ### 2. Disable Row Level Security (RLS)
-This is the most important step for the sync to start working:
+For easiest setup:
 1. Go to **Supabase Dashboard** -> **Table Editor**.
-2. For **each** of the 7 tables created above, look at the top right corner.
-3. Click on the **RLS** badge (it likely says "RLS Enabled").
-4. Select **Disable RLS** and confirm.
-5. Repeat this for all tables.
+2. For **each** of the 7 tables, click the **RLS** badge and select **Disable RLS**.
 
-### 3. Final Verification
-- Refresh your website on both browsers.
-- Add an item in one browser.
-- Wait 5-10 seconds.
-- It should automatically appear in the other browser!
+### 3. Production Verify
+- Refresh your site.
+- Check the **Sync** indicator in the header (if present).
+- Any item updated on one device will now intelligently overwrite older versions on other devices based on the `updated_at` timestamp.

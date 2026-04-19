@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export function SyncEngine() {
   const isSyncing = useRef(false);
+  const [lastSyncTime, setLastSyncSyncTime] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. Initial Pull & Periodic Sync
+    // Sync Interval
     const syncInterval = setInterval(async () => {
       if (isSyncing.current) return;
       
-      // Don't attempt sync if we only have placeholder credentials
+      // Skip if placeholder credentials
       if (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || 
           !process.env.NEXT_PUBLIC_SUPABASE_URL) {
         return;
@@ -21,73 +23,73 @@ export function SyncEngine() {
       isSyncing.current = true;
       
       try {
-        // --- PULL FROM CLOUD ---
-        const { data: cloudProducts } = await supabase.from('products').select('*');
-        if (cloudProducts && cloudProducts.length > 0) await db.products.bulkPut(cloudProducts);
+        const tables = [
+          { name: 'products', db: db.products },
+          { name: 'variants', db: db.variants },
+          { name: 'customers', db: db.customers },
+          { name: 'khata_transactions', db: db.khata_transactions },
+          { name: 'sales', db: db.sales },
+          { name: 'sale_items', db: db.sale_items },
+          { name: 'bills', db: db.bills }
+        ];
 
-        const { data: cloudVariants } = await supabase.from('variants').select('*');
-        if (cloudVariants && cloudVariants.length > 0) await db.variants.bulkPut(cloudVariants);
+        for (const table of tables) {
+          // --- 1. PULL CHANGES FROM CLOUD ---
+          // Fetch items updated since our last sync
+          let query = supabase.from(table.name).select('*');
+          if (lastSyncTime) {
+            query = query.gt('updated_at', lastSyncTime);
+          }
+          
+          const { data: cloudChanges, error: pullError } = await query;
+          
+          if (!pullError && cloudChanges && cloudChanges.length > 0) {
+            // Smart Merge: Only update local if cloud is newer
+            for (const cloudItem of cloudChanges) {
+              const localItem = await (table.db as any).get(cloudItem.id);
+              if (!localItem || new Date(cloudItem.updated_at) > new Date(localItem.updated_at)) {
+                await (table.db as any).put(cloudItem);
+              }
+            }
+          }
 
-        const { data: cloudCustomers } = await supabase.from('customers').select('*');
-        if (cloudCustomers && cloudCustomers.length > 0) await db.customers.bulkPut(cloudCustomers);
+          // --- 2. PUSH LOCAL CHANGES TO CLOUD ---
+          // Fetch local items updated since last sync or marked as pending
+          const localChanges = await (table.db as any).toArray();
+          const toPush = localChanges.filter((item: any) => {
+             if (item.sync_status === 'pending') return true;
+             if (!lastSyncTime) return true;
+             return new Date(item.updated_at) > new Date(lastSyncTime);
+          });
 
-        const { data: cloudKhataTransactions } = await supabase.from('khata_transactions').select('*');
-        if (cloudKhataTransactions && cloudKhataTransactions.length > 0) await db.khata_transactions.bulkPut(cloudKhataTransactions);
+          if (toPush.length > 0) {
+            // Clean items before push (remove sync_status if it's local only)
+            const cleanedPush = toPush.map((item: any) => {
+              const { sync_status, ...rest } = item;
+              return rest;
+            });
 
-        const { data: cloudSales } = await supabase.from('sales').select('*');
-        if (cloudSales && cloudSales.length > 0) await db.sales.bulkPut(cloudSales);
-
-        const { data: cloudSaleItems } = await supabase.from('sale_items').select('*');
-        if (cloudSaleItems && cloudSaleItems.length > 0) await db.sale_items.bulkPut(cloudSaleItems);
-
-        const { data: cloudBills } = await supabase.from('bills').select('*');
-        if (cloudBills && cloudBills.length > 0) await db.bills.bulkPut(cloudBills);
-
-        // --- PUSH TO CLOUD ---
-        const localProducts = await db.products.toArray();
-        if (localProducts.length > 0) await supabase.from('products').upsert(localProducts);
-
-        const localVariants = await db.variants.toArray();
-        if (localVariants.length > 0) await supabase.from('variants').upsert(localVariants);
-        
-        const localCustomers = await db.customers.toArray();
-        if (localCustomers.length > 0) await supabase.from('customers').upsert(localCustomers);
-
-        const localBills = await db.bills.toArray();
-        if (localBills.length > 0) await supabase.from('bills').upsert(localBills);
-        
-        // Push pending sales & items
-        const pendingSales = await db.sales.where('sync_status').equals('pending').toArray();
-        if (pendingSales.length > 0) {
-          const { error } = await supabase.from('sales').upsert(pendingSales.map(s => ({ ...s, sync_status: 'synced' })));
-          if (!error) {
-            // Also push related sale items
-            const saleIds = pendingSales.map(s => s.id);
-            const items = await db.sale_items.where('sale_id').anyOf(saleIds).toArray();
-            if (items.length > 0) await supabase.from('sale_items').upsert(items);
+            const { error: pushError } = await supabase.from(table.name).upsert(cleanedPush);
             
-            await db.sales.bulkPut(pendingSales.map(s => ({ ...s, sync_status: 'synced' })));
+            if (!pushError) {
+              // Mark as synced locally
+              const syncedItems = toPush.map((item: any) => ({ ...item, sync_status: 'synced' }));
+              await (table.db as any).bulkPut(syncedItems);
+            }
           }
         }
 
-        // Push pending khata transactions
-        const pendingKhataTransactions = await db.khata_transactions.where('sync_status').equals('pending').toArray();
-        if (pendingKhataTransactions.length > 0) {
-          const { error } = await supabase.from('khata_transactions').upsert(pendingKhataTransactions.map(tx => ({ ...tx, sync_status: 'synced' })));
-          if (!error) {
-            await db.khata_transactions.bulkPut(pendingKhataTransactions.map(tx => ({ ...tx, sync_status: 'synced' })));
-          }
-        }
+        setLastSyncSyncTime(new Date().toISOString());
 
       } catch (err) {
-        console.error("Background sync error:", err);
+        console.error("Critical Sync Error:", err);
       } finally {
         isSyncing.current = false;
       }
-    }, 3000); // Sync every 3 seconds for that "instant" feel
+    }, 5000); // 5 seconds interval for production stability
 
     return () => clearInterval(syncInterval);
-  }, []);
+  }, [lastSyncTime]);
 
   return null;
 }

@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS customers (
     phone TEXT NOT NULL,
     balance NUMERIC NOT NULL DEFAULT 0,
     last_tx TEXT NOT NULL,
-    status TEXT NOT NULL
+    status TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 4. Sales Table

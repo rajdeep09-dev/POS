@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  MessageSquare,
+  FileBadge
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -27,6 +29,8 @@ import {
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -39,12 +43,44 @@ interface ReceiptModalProps {
     date: string;
   };
   items: any[];
+  onGenerateGst?: (items: any[]) => void;
 }
 
-export function ReceiptModal({ isOpen, onClose, saleData, items }: ReceiptModalProps) {
+export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }: ReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen || !saleData?.id) return null;
+
+  const handleSendToWhatsApp = async () => {
+    const phone = prompt("Enter Customer WhatsApp Number (with country code, e.g. 919876543210):");
+    if (!phone) return;
+
+    if (!receiptRef.current) return;
+    toast.info("Preparing bill for sharing...");
+
+    try {
+      // 1. Generate Image
+      const dataUrl = await toPng(receiptRef.current, { cacheBust: true, backgroundColor: '#ffffff' });
+      
+      // 2. Upload to Supabase temporary bucket
+      const blob = await (await fetch(dataUrl)).blob();
+      const fileName = `temp-receipts/${uuidv4()}.png`;
+      const { data, error } = await supabase.storage.from('product-images').upload(fileName, blob);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
+
+      // 3. Open WhatsApp
+      const text = encodeURIComponent(`Hello! Here is your bill from Joy Ram Steel for ₹${saleData.total}.\n\nView Bill: ${publicUrl}\n\nThank you!`);
+      window.open(`https://wa.me/${phone.replace(/\+/g, '')}?text=${text}`, '_blank');
+      toast.success("WhatsApp opened with bill link!");
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to share via WhatsApp");
+    }
+  };
 
   const downloadAsImage = async () => {
     if (!receiptRef.current) return;
@@ -184,25 +220,41 @@ export function ReceiptModal({ isOpen, onClose, saleData, items }: ReceiptModalP
         </div>
 
         {/* Actions Footer */}
-        <div className="p-6 bg-white border-t border-zinc-100 flex gap-3">
+        <div className="p-6 bg-white border-t border-zinc-100 grid grid-cols-2 gap-3">
           <Button 
             variant="outline" 
-            className="flex-1 rounded-2xl h-14 font-black uppercase tracking-widest text-xs gap-2 border-zinc-200"
+            className="rounded-2xl h-14 font-black uppercase tracking-widest text-[10px] gap-2 border-zinc-200"
             onClick={handlePrint}
           >
-            <Printer className="h-5 w-5" /> Print Bill
+            <Printer className="h-4 w-4" /> Print
+          </Button>
+
+          <Button 
+            variant="outline" 
+            className="rounded-2xl h-14 font-black uppercase tracking-widest text-[10px] gap-2 border-emerald-100 text-emerald-600 hover:bg-emerald-50"
+            onClick={handleSendToWhatsApp}
+          >
+            <MessageSquare className="h-4 w-4" /> WhatsApp
+          </Button>
+
+          <Button 
+            variant="outline" 
+            className="rounded-2xl h-14 font-black uppercase tracking-widest text-[10px] gap-2 border-blue-100 text-blue-600 hover:bg-blue-50"
+            onClick={() => onGenerateGst?.(items)}
+          >
+            <FileBadge className="h-4 w-4" /> Gen GST
           </Button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button className="flex-1 rounded-2xl h-14 bg-zinc-900 hover:bg-black text-white font-black uppercase tracking-widest text-xs gap-2" />}>
-              <Download className="h-5 w-5" /> Download
+            <DropdownMenuTrigger render={<Button className="w-full rounded-2xl h-14 bg-zinc-900 hover:bg-black text-white font-black uppercase tracking-widest text-[10px] gap-2" />}>
+              <Download className="h-4 w-4" /> Download
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 bg-white/90 backdrop-blur-xl">
+            <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 bg-white/95 backdrop-blur-xl z-[6000]">
               <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-12 flex gap-3 font-bold cursor-pointer">
-                <ImageIcon className="h-4 w-4 text-blue-500" /> Download as Image
+                <ImageIcon className="h-4 w-4 text-blue-500" /> Save as Image
               </DropdownMenuItem>
               <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-12 flex gap-3 font-bold cursor-pointer">
-                <FileText className="h-4 w-4 text-red-500" /> Download as PDF
+                <FileText className="h-4 w-4 text-red-500" /> Save as PDF
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

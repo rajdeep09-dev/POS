@@ -35,13 +35,37 @@ import { db } from "@/lib/db";
 interface GstInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialItems?: any[];
+  initialReceiver?: any;
 }
 
-export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
+export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver }: GstInvoiceModalProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState([{ desc: "", hsn: "7323", qty: "1", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
   const [receiver, setReceiver] = useState({ name: "", address: "", gstin: "" });
   const [invoiceDetails, setInvoiceDetails] = useState({ no: "", date: new Date().toISOString().split('T')[0] });
+
+  // Pre-fill from POS if provided
+  React.useEffect(() => {
+    if (isOpen && initialItems && initialItems.length > 0) {
+      const formatted = initialItems.map(item => {
+        const rate = item.base_price;
+        const taxable = rate / 1.18;
+        return {
+          desc: `${item.productName} - ${item.size}`.toUpperCase(),
+          hsn: "7323",
+          qty: item.qty.toString(),
+          finalRate: rate.toString(),
+          gstRate: "18",
+          taxableValue: parseFloat((taxable * item.qty).toFixed(2)),
+          cgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
+          sgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
+          total: rate * item.qty
+        };
+      });
+      setItems(formatted);
+    }
+  }, [isOpen, initialItems]);
 
   // Catalog for dropdown
   const catalog = useLiveQuery(async () => {
