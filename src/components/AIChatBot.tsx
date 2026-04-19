@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { db } from "@/lib/db";
+import { v4 as uuidv4 } from "uuid";
 
 interface Message {
   id: string;

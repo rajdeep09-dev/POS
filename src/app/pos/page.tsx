@@ -363,7 +363,7 @@ export default function POS() {
                   value={[actualDiscount]}
                   max={subtotal}
                   step={10}
-                  onValueChange={(vals) => setDiscount(vals[0])}
+                  onValueChange={(vals) => setDiscount(Array.isArray(vals) ? vals[0] : (vals as number))}
                   className="py-2"
                 />
 
