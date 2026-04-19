@@ -11,6 +11,13 @@ export function SyncEngine() {
     // 1. Initial Pull & Periodic Sync
     const syncInterval = setInterval(async () => {
       if (isSyncing.current) return;
+      
+      // Don't attempt sync if we only have placeholder credentials
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || 
+          !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        return;
+      }
+
       isSyncing.current = true;
       
       try {

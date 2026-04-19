@@ -25,15 +25,15 @@ const item = {
 };
 
 export default function Dashboard() {
-  const sales = useLiveQuery(() => db.sales.toArray());
-  const saleItems = useLiveQuery(() => db.sale_items.toArray());
-  const variants = useLiveQuery(() => db.variants.toArray());
-  const products = useLiveQuery(() => db.products.toArray());
-  const customers = useLiveQuery(() => db.customers.toArray());
+  const sales = useLiveQuery(() => db.sales.toArray(), []) || [];
+  const saleItems = useLiveQuery(() => db.sale_items.toArray(), []) || [];
+  const variants = useLiveQuery(() => db.variants.toArray(), []) || [];
+  const products = useLiveQuery(() => db.products.toArray(), []) || [];
+  const customers = useLiveQuery(() => db.customers.toArray(), []) || [];
 
-  const isLoading = !sales || !saleItems || !variants || !products || !customers;
+  const isLoading = !sales.length && !saleItems.length && !variants.length && !products.length && !customers.length;
 
-  if (isLoading) {
+  if (isLoading && !products.length) { // Only show loading if we literally have no data yet
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-zinc-400 font-black uppercase tracking-[0.3em] animate-pulse text-xs">
