@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ProductSearch } from "@/components/ProductSearch";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
@@ -38,8 +39,30 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
   const [receiver, setReceiver] = useState({ name: "", address: "", gstin: "" });
   const [invoiceDetails, setInvoiceDetails] = useState({ no: "", date: new Date().toISOString().split('T')[0] });
 
-  const addItem = () => {
-    setItems([...items, { desc: "", hsn: "", qty: "1", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
+  const addItem = (selectedProduct?: any) => {
+    const newItem = {
+      desc: selectedProduct ? `${selectedProduct.productName} - ${selectedProduct.size}` : "",
+      hsn: "7323", // Default HSN
+      qty: "1",
+      finalRate: selectedProduct ? selectedProduct.base_price.toString() : "",
+      gstRate: "18", // Default GST
+      taxableValue: 0,
+      cgst: 0,
+      sgst: 0,
+      total: 0
+    };
+    
+    // Auto-calculate if product selected
+    if (selectedProduct) {
+      const taxable = selectedProduct.base_price / 1.18;
+      const gstAmount = selectedProduct.base_price - taxable;
+      newItem.taxableValue = parseFloat(taxable.toFixed(2));
+      newItem.cgst = parseFloat((gstAmount / 2).toFixed(2));
+      newItem.sgst = parseFloat((gstAmount / 2).toFixed(2));
+      newItem.total = selectedProduct.base_price;
+    }
+
+    setItems([...items, newItem]);
   };
 
   const updateItem = (index: number, field: string, value: string) => {
@@ -172,11 +195,16 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
           </div>
 
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Inventory Items (Inclusive GST)</Label>
-              <Button onClick={addItem} size="sm" className="rounded-xl h-10 px-4 bg-zinc-900 text-white font-black text-[10px] tracking-widest">ADD ITEM</Button>
+            <div className="flex flex-col gap-3">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Search & Add Inventory</Label>
+              <div className="flex gap-2">
+                <ProductSearch onSelect={(p) => addItem(p)} className="flex-1" placeholder="Search product to add..." />
+                <Button onClick={() => addItem()} variant="outline" size="icon" className="h-12 w-12 rounded-xl border-zinc-200 shrink-0">
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
-            
+
             <div className="space-y-3">
               {items.map((item, index) => (
                 <div key={index} className="bg-zinc-50 p-5 rounded-[1.5rem] border border-zinc-100 space-y-3 relative group">
@@ -187,14 +215,13 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
                     <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="Price/Unit" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600" />
                     <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="GST %" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600" />
                   </div>
-                  {items.length > 1 && (
+                  {items.length > 0 && (
                     <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-2 -right-2 bg-white shadow-md rounded-full h-8 w-8 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button>
                   )}
                 </div>
               ))}
             </div>
           </div>
-
           <div className="mt-auto pt-8 flex gap-3">
             <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-2xl h-16 border-2 border-zinc-100 font-black tracking-widest text-xs"><Printer className="h-5 w-5 mr-2" /> PRINT</Button>
             <DropdownMenu>

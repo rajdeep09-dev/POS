@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ProductSearch } from "@/components/ProductSearch";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
@@ -42,8 +43,22 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
     toName: "",
     toGstin: "",
     transporter: "Vikash Steel Logistics",
-    vehicleNo: "TR03L1621"
+    vehicleNo: "TR03L1621",
+    itemName: "STEEL KITCHEN WARE ITEMS",
+    itemHsn: "7323",
+    itemQty: "1.00",
+    itemAmount: "10,000.00"
   });
+
+  const handleProductSelect = (p: any) => {
+    setDetails({
+      ...details,
+      itemName: `${p.productName} - ${p.size}`.toUpperCase(),
+      itemHsn: "7323",
+      itemQty: "1.00",
+      itemAmount: p.base_price.toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    });
+  };
 
   const downloadAsImage = async () => {
     if (!ewayRef.current) return;
@@ -108,6 +123,20 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Vehicle No.</Label>
                 <Input value={details.vehicleNo} onChange={e => setDetails({...details, vehicleNo: e.target.value})} className="h-12 rounded-xl uppercase" />
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-zinc-100">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Goods Details</Label>
+              <ProductSearch onSelect={handleProductSelect} placeholder="Search product to bill..." />
+              
+              <div className="space-y-3 p-4 bg-zinc-50 rounded-2xl">
+                <Input value={details.itemName} onChange={e => setDetails({...details, itemName: e.target.value})} placeholder="Product Name" className="h-10 bg-white font-bold text-xs rounded-xl" />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input value={details.itemHsn} onChange={e => setDetails({...details, itemHsn: e.target.value})} placeholder="HSN" className="h-10 bg-white text-xs rounded-xl" />
+                  <Input value={details.itemQty} onChange={e => setDetails({...details, itemQty: e.target.value})} placeholder="Qty" className="h-10 bg-white text-xs rounded-xl" />
+                  <Input value={details.itemAmount} onChange={e => setDetails({...details, itemAmount: e.target.value})} placeholder="Amount" className="h-10 bg-white text-xs rounded-xl font-black" />
+                </div>
               </div>
             </div>
           </div>
@@ -185,10 +214,10 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
                   </thead>
                   <tbody>
                     <tr className="h-[12mm] border-b border-zinc-200">
-                      <td className="border-r-2 border-black text-center font-bold">7323</td>
-                      <td className="border-r-2 border-black p-2 font-black uppercase italic">STEEL KITCHEN WARE ITEMS</td>
-                      <td className="border-r-2 border-black text-center font-bold">1.00</td>
-                      <td className="text-right pr-2 font-black">10,000.00</td>
+                      <td className="border-r-2 border-black text-center font-bold">{details.itemHsn}</td>
+                      <td className="border-r-2 border-black p-2 font-black uppercase italic">{details.itemName}</td>
+                      <td className="border-r-2 border-black text-center font-bold">{details.itemQty}</td>
+                      <td className="text-right pr-2 font-black">{details.itemAmount}</td>
                     </tr>
                   </tbody>
                 </table>
