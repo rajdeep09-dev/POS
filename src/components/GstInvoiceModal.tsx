@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,9 @@ import { ProductSearch } from "@/components/ProductSearch";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 interface GstInvoiceModalProps {
   isOpen: boolean;
@@ -38,6 +41,20 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
   const [items, setItems] = useState([{ desc: "", hsn: "", qty: "1", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
   const [receiver, setReceiver] = useState({ name: "", address: "", gstin: "" });
   const [invoiceDetails, setInvoiceDetails] = useState({ no: "", date: new Date().toISOString().split('T')[0] });
+
+  // Load all products for the dropdown
+  const catalog = useLiveQuery(async () => {
+    const products = await db.products.toArray();
+    const variants = await db.variants.toArray();
+    return variants.map(v => {
+      const p = products.find(prod => prod.id === v.product_id);
+      return {
+        ...v,
+        productName: p?.name || "Unknown Product",
+        size: v.size
+      };
+    });
+  }, []);
 
   const addItem = (selectedProduct?: any) => {
     const newItem = {
@@ -70,7 +87,6 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
     (newItems[index] as any)[field] = value;
     
     // Calculate Backward GST (Inclusive to Exclusive)
-    // Formula: Taxable Value = Total / (1 + GST_Rate)
     const qty = parseFloat(newItems[index].qty) || 0;
     const finalRate = parseFloat(newItems[index].finalRate) || 0;
     const gstRate = parseFloat(newItems[index].gstRate) || 18;
@@ -95,7 +111,7 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
   };
 
   const removeItem = (index: number) => {
-    if (items.length > 1) {
+    if (items.length > 0) {
       setItems(items.filter((_, i) => i !== index));
     }
   };
@@ -105,22 +121,10 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
   const totalSgst = items.reduce((acc, item) => acc + item.sgst, 0);
   const grandTotal = items.reduce((acc, item) => acc + item.total, 0);
 
-  const exportOptions = {
-    cacheBust: true,
-    backgroundColor: '#ffffff',
-    width: 794, // A4 pixels at 96 DPI
-    height: 1123,
-    style: {
-      transform: 'scale(1)',
-      margin: '0',
-    }
-  };
-
   const downloadAsImage = async () => {
     if (!invoiceRef.current) return;
     toast.info("Generating A4 Image...");
     try {
-      // Use a slightly lower pixel ratio and quality to bring size under 1MB
       const dataUrl = await toPng(invoiceRef.current, { 
         pixelRatio: 2,
         quality: 0.8,
@@ -131,7 +135,7 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
       link.download = `JoyRam-GST-${invoiceDetails.no || 'Invoice'}.png`;
       link.href = dataUrl;
       link.click();
-      toast.success("Image Saved (<1MB)");
+      toast.success("Image Saved");
     } catch (err) {
       toast.error("Export failed");
     }
@@ -139,11 +143,11 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
 
   const downloadAsPDF = async () => {
     if (!invoiceRef.current) return;
-    toast.info("Generating Compact PDF...");
+    toast.info("Generating PDF...");
     try {
       const dataUrl = await toPng(invoiceRef.current, { 
         pixelRatio: 2,
-        quality: 0.7, // Compress for PDF
+        quality: 0.7,
         cacheBust: true,
         backgroundColor: '#ffffff'
       });
@@ -152,12 +156,12 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
         orientation: 'p',
         unit: 'mm',
         format: 'a4',
-        compress: true // Enable internal PDF compression
+        compress: true
       });
 
       pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       pdf.save(`JoyRam-GST-${invoiceDetails.no || 'Invoice'}.pdf`);
-      toast.success("PDF Saved (<1MB)");
+      toast.success("PDF Saved");
     } catch (err) {
       toast.error("Export failed");
     }
@@ -165,230 +169,254 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="!fixed !inset-0 !max-w-none !w-screen !h-[100dvh] !m-0 !p-0 !border-none !bg-zinc-900/95 !backdrop-blur-3xl flex flex-col md:flex-row overflow-hidden !rounded-none !shadow-none !ring-0 !transform-none !top-0 !left-0 !z-[5000]">
+      <DialogContent className="!fixed !inset-0 !max-w-none !w-screen !h-[100dvh] !m-0 !p-0 !border-none !bg-zinc-950 !flex !flex-col md:!flex-row overflow-hidden !rounded-none !shadow-none !ring-0 !transform-none !top-0 !left-0 !z-[5000]">
         
-        {/* Input Form Panel */}
-        <div className="w-full md:w-[450px] h-[45dvh] md:h-full bg-white overflow-y-auto p-6 md:p-10 flex flex-col gap-8 shadow-2xl relative z-20 shrink-0 border-b md:border-b-0 md:border-r border-zinc-100">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-3xl font-black italic tracking-tighter text-zinc-900 leading-none">GST GEN</h2>
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-2">Professional Billing Engine</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-100 h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
+        <Tabs defaultValue="edit" className="w-full h-full flex flex-col md:flex-row gap-0">
+          
+          {/* Mobile Tab Switcher */}
+          <div className="md:hidden bg-zinc-900 border-b border-white/10 p-3 shrink-0">
+            <TabsList className="w-full bg-zinc-800/50 rounded-2xl h-14 p-1">
+              <TabsTrigger value="edit" className="rounded-xl font-black text-xs tracking-widest uppercase">1. Edit Data</TabsTrigger>
+              <TabsTrigger value="preview" className="rounded-xl font-black text-xs tracking-widest uppercase">2. View Bill</TabsTrigger>
+            </TabsList>
           </div>
 
-          <div className="space-y-6">
-            <div className="space-y-3 text-left">
-              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Billed To (Receiver)</Label>
-              <div className="space-y-2">
-                <Input value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} placeholder="M/s. Customer Name" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-base shadow-inner" />
-                <Input value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} placeholder="Full Address" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold text-sm shadow-inner" />
-                <Input value={receiver.gstin} onChange={e => setReceiver({...receiver, gstin: e.target.value})} placeholder="Receiver GSTIN" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black uppercase text-base shadow-inner" />
+          {/* Form Content */}
+          <TabsContent value="edit" className="flex-1 h-full md:w-[480px] md:max-w-[480px] md:shrink-0 bg-white overflow-y-auto m-0">
+            <div className="p-6 md:p-10 flex flex-col gap-8 min-h-full">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-black italic tracking-tighter text-zinc-900 leading-none uppercase">GST Generator</h2>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-2">Professional Billing Engine</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-100 h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3 text-left">
-                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Invoice No.</Label>
-                <Input value={invoiceDetails.no} onChange={e => setInvoiceDetails({...invoiceDetails, no: e.target.value})} placeholder="JR/24-25/001" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-center shadow-inner" />
-              </div>
-              <div className="space-y-3 text-left">
-                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Date</Label>
-                <Input type="date" value={invoiceDetails.date} onChange={e => setInvoiceDetails({...invoiceDetails, date: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold shadow-inner" />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3">
-              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Search & Add Inventory</Label>
-              <div className="flex gap-2">
-                <ProductSearch onSelect={(p) => addItem(p)} className="flex-1" placeholder="Search product to add..." />
-                <Button onClick={() => addItem()} variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-2 border-zinc-100 shrink-0 hover:bg-zinc-50 transition-all">
-                  <Plus className="h-6 w-6" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {items.map((item, index) => (
-                <div key={index} className="bg-zinc-50/50 p-5 rounded-[2rem] border border-zinc-100 space-y-4 relative group hover:border-zinc-200 transition-all shadow-sm">
-                  <Input value={item.desc} onChange={e => updateItem(index, 'desc', e.target.value)} placeholder="Description of Goods" className="h-12 bg-white border-zinc-200 font-black text-sm rounded-xl shadow-sm" />
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">HSN</span>
-                      <Input value={item.hsn} onChange={e => updateItem(index, 'hsn', e.target.value)} placeholder="HSN" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Qty</span>
-                      <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black shadow-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Rate</span>
-                      <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="Price" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">GST %</span>
-                      <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="%" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600 shadow-sm" />
-                    </div>
+              <div className="space-y-6">
+                <div className="space-y-3 text-left">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Billed To (Receiver)</Label>
+                  <div className="space-y-2">
+                    <Input value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} placeholder="M/s. Customer Name" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-base shadow-inner" />
+                    <Input value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} placeholder="Full Address" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold text-sm shadow-inner" />
+                    <Input value={receiver.gstin} onChange={e => setReceiver({...receiver, gstin: e.target.value})} placeholder="Receiver GSTIN" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black uppercase text-base shadow-inner" />
                   </div>
-                  {items.length > 0 && (
-                    <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-3 -right-2 bg-white shadow-xl rounded-full h-9 w-9 text-red-500 hover:bg-red-50 border border-zinc-100 transition-all md:opacity-0 group-hover:opacity-100"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3 text-left">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Invoice No.</Label>
+                    <Input value={invoiceDetails.no} onChange={e => setInvoiceDetails({...invoiceDetails, no: e.target.value})} placeholder="JR/24-25/001" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-center shadow-inner uppercase" />
+                  </div>
+                  <div className="space-y-3 text-left">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Date</Label>
+                    <Input type="date" value={invoiceDetails.date} onChange={e => setInvoiceDetails({...invoiceDetails, date: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold shadow-inner" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center px-1">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Add Inventory Items</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="link" className="h-auto p-0 text-[10px] font-black text-blue-600 uppercase">Quick List</Button>} />
+                      <DropdownMenuContent className="max-h-[300px] overflow-y-auto rounded-2xl p-2 min-w-[250px] shadow-2xl border-zinc-100">
+                        {catalog?.map(p => (
+                          <DropdownMenuItem key={p.id} onClick={() => addItem(p)} className="rounded-xl h-12 font-bold text-xs flex justify-between cursor-pointer">
+                            <span>{p.productName} ({p.size})</span>
+                            <span className="text-blue-600">₹{p.base_price}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="flex gap-2">
+                    <ProductSearch onSelect={(p) => addItem(p)} className="flex-1" placeholder="Search product to add..." />
+                    <Button onClick={() => addItem()} variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-2 border-zinc-100 shrink-0 hover:bg-zinc-50 transition-all">
+                      <Plus className="h-6 w-6" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {items.map((item, index) => (
+                    <div key={index} className="bg-zinc-50 p-5 rounded-[2.5rem] border border-zinc-100 space-y-4 relative group hover:border-zinc-200 transition-all shadow-sm">
+                      <Input value={item.desc} onChange={e => updateItem(index, 'desc', e.target.value)} placeholder="Description of Goods" className="h-12 bg-white border-zinc-200 font-black text-sm rounded-2xl shadow-sm uppercase" />
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">HSN</span>
+                          <Input value={item.hsn} onChange={e => updateItem(index, 'hsn', e.target.value)} placeholder="7323" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">Qty</span>
+                          <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)} placeholder="1" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black shadow-sm" />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">Rate</span>
+                          <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="0.00" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">GST%</span>
+                          <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="18" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600 shadow-sm" />
+                        </div>
+                      </div>
+                      <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-3 -right-2 bg-white shadow-xl rounded-full h-10 w-10 text-red-500 hover:bg-red-50 border border-zinc-100 transition-all"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                  {items.length === 0 && (
+                    <div className="py-10 text-center border-2 border-dashed border-zinc-100 rounded-3xl">
+                      <p className="text-zinc-400 font-black text-[10px] uppercase tracking-widest">No items added yet</p>
+                    </div>
                   )}
                 </div>
-              ))}
+              </div>
+
+              <div className="mt-auto pt-10 flex gap-4 pb-8">
+                <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-[1.5rem] h-20 border-2 border-zinc-100 font-black tracking-widest text-[10px] hover:bg-zinc-50 transition-all uppercase"><Printer className="h-6 w-6 mr-3 text-zinc-400" /> PRINT</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button className="flex-1 rounded-[1.5rem] h-20 bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl hover:bg-zinc-800 transition-all uppercase" />} >
+                    <Download className="h-6 w-6 mr-3 text-zinc-400" /> EXPORT
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="rounded-[1.5rem] p-3 border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] min-w-[220px] bg-white/95 backdrop-blur-3xl">
+                    <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><ImageIcon className="h-6 w-6 text-blue-600" /> Save as Image</DropdownMenuItem>
+                    <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><FileText className="h-6 w-6 text-red-600" /> Save as PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
+          </TabsContent>
 
-          <div className="mt-auto pt-10 flex gap-4 pb-4">
-            <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-[1.5rem] h-20 border-2 border-zinc-100 font-black tracking-widest text-[10px] hover:bg-zinc-50 transition-all uppercase"><Printer className="h-6 w-6 mr-3 text-zinc-400" /> PRINT</Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button className="flex-1 rounded-[1.5rem] h-20 bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl hover:bg-zinc-800 transition-all uppercase" />} >
-                <Download className="h-6 w-6 mr-3 text-zinc-400" /> EXPORT
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="rounded-[1.5rem] p-3 border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] min-w-[220px] bg-white/95 backdrop-blur-3xl">
-                <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><ImageIcon className="h-6 w-6 text-blue-600" /> Save as Image</DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><FileText className="h-6 w-6 text-red-600" /> Save as PDF</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Real-Time A4 Mirror Preview */}
-        <div className="flex-1 h-[55dvh] md:h-full overflow-auto bg-zinc-950/40 p-4 md:p-12 lg:p-20 flex items-start justify-center scrollbar-hide">
-          <div className="shrink-0 flex justify-center origin-top transform-gpu scale-[0.4] sm:scale-[0.55] md:scale-[0.7] lg:scale-[0.85] xl:scale-100 transition-transform duration-500">
-            <div 
-              ref={invoiceRef}
-              className="bg-white shadow-[0_60px_150px_rgba(0,0,0,0.6)] flex flex-col p-[15mm] text-black shrink-0"
-              style={{ width: '210mm', minHeight: '297mm', fontFamily: "'Times New Roman', serif" }}
-            >
-              {/* EXACT HEADER REPLICA FROM gst.jpg */}
-              <div className="flex justify-between items-start mb-6 text-[10.5pt]">
-                <div className="font-bold tracking-tight">GSTIN : 16ENCPD2885R1ZE</div>
-                <div className="text-center">
-                  <div className="font-bold border-b-2 border-black px-8 pb-0.5 text-[12pt] tracking-widest uppercase">TAX INVOICE</div>
+          {/* Preview Content */}
+          <TabsContent value="preview" className="flex-1 h-full overflow-auto bg-zinc-950 p-4 md:p-12 lg:p-20 flex items-start justify-center m-0 scrollbar-hide">
+            <div className="shrink-0 flex justify-center origin-top transform-gpu scale-[0.4] sm:scale-[0.55] md:scale-[0.65] lg:scale-[0.8] xl:scale-100 transition-all duration-500">
+              <div 
+                ref={invoiceRef}
+                className="bg-white shadow-[0_60px_150px_rgba(0,0,0,0.6)] flex flex-col p-[15mm] text-black shrink-0"
+                style={{ width: '210mm', minHeight: '297mm', fontFamily: "'Times New Roman', serif" }}
+              >
+                <div className="flex justify-between items-start mb-6 text-[10.5pt]">
+                  <div className="font-bold tracking-tight">GSTIN : 16ENCPD2885R1ZE</div>
+                  <div className="text-center">
+                    <div className="font-bold border-b-2 border-black px-8 pb-0.5 text-[12pt] tracking-widest uppercase">TAX INVOICE</div>
+                  </div>
+                  <div className="text-[9pt] border-2 border-black p-2 space-y-1.5 font-bold min-w-[140px]">
+                    <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Original Copy</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Duplicate Copy</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Triplicate Copy</span></div>
+                  </div>
                 </div>
-                <div className="text-[9pt] border-2 border-black p-2 space-y-1.5 font-bold min-w-[140px]">
-                  <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Original Copy</span></div>
-                  <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Duplicate Copy</span></div>
-                  <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 border-2 border-black rounded-sm" /><span>Triplicate Copy</span></div>
-                </div>
-              </div>
 
-              {/* SHOP BRANDING */}
-              <div className="text-center mb-10 mt-4">
-                <h1 className="text-[48pt] font-black tracking-tighter uppercase italic leading-[0.9] border-black inline-block">JOY RAM STEEL</h1>
-                <p className="text-[13pt] font-bold mt-3 tracking-wide">Dhajanagar, Udaipur, Gomati Tripura, Pin - 799114</p>
-              </div>
-
-              {/* RECEIVER & INVOICE DETAILS */}
-              <div className="flex justify-between mb-8 border-t-2 border-black pt-5 text-[11pt] leading-relaxed">
-                <div className="flex-1 space-y-2.5">
-                  <div className="font-bold uppercase underline tracking-wider">Details of Receiver :</div>
-                  <div className="flex gap-2"><span>M/s.</span> <span className="font-black text-[13pt]">{receiver.name || "_________________________________"}</span></div>
-                  <div className="flex gap-2"><span>Address :</span> <span className="font-bold italic flex-1">{receiver.address || "______________________________________________________"}</span></div>
-                  <div className="flex gap-2 mt-4"><span>GSTIN / Unique ID :</span> <span className="font-black uppercase tracking-widest text-[12pt]">{receiver.gstin || "____________________"}</span></div>
+                <div className="text-center mb-10 mt-4">
+                  <h1 className="text-[48pt] font-black tracking-tighter uppercase italic leading-[0.9] border-black inline-block">JOY RAM STEEL</h1>
+                  <p className="text-[13pt] font-bold mt-3 tracking-wide">Dhajanagar, Udaipur, Gomati Tripura, Pin - 799114</p>
                 </div>
-                <div className="w-[75mm] space-y-3 pl-6 border-l-2 border-black">
-                  <div className="flex justify-between items-center"><span>Invoice No. :</span> <span className="font-black text-[12pt]">{invoiceDetails.no || "N/A"}</span></div>
-                  <div className="flex justify-between items-center border-b border-zinc-300 pb-1"><span>Date :</span> <span className="font-black text-[12pt]">{invoiceDetails.date ? new Date(invoiceDetails.date).toLocaleDateString('en-GB') : ""}</span></div>
-                  <div className="text-[9pt] mt-4 font-black uppercase leading-tight italic text-zinc-500 text-right">Supply of Goods under GST<br/>(Fill in the State Code)</div>
-                </div>
-              </div>
 
-              {/* GOODS TABLE (EXACT RATIOS) */}
-              <table className="w-full border-collapse border-2 border-black mb-8 text-[11pt]">
-                <thead>
-                  <tr className="border-b-2 border-black font-black uppercase bg-zinc-50 text-[10pt]">
-                    <th className="border-r-2 border-black py-2 w-[12mm]">Sl. No.</th>
-                    <th className="border-r-2 border-black py-2 text-left px-4">Description of Goods</th>
-                    <th className="border-r-2 border-black py-2 w-[25mm]">HSN Code</th>
-                    <th className="border-r-2 border-black py-2 w-[30mm]">Quantity Unit</th>
-                    <th className="border-r-2 border-black py-2 w-[28mm]">Rate</th>
-                    <th className="py-2 w-[40mm]">Amount Rs.</th>
-                  </tr>
-                </thead>
-                <tbody className="font-bold">
-                  {items.map((item, i) => (
-                    <tr key={i} className="border-b border-zinc-200 h-[10mm] text-center italic">
-                      <td className="border-r-2 border-black">{i+1}</td>
-                      <td className="border-r-2 border-black text-left px-4 font-black uppercase not-italic text-[10.5pt]">{item.desc}</td>
-                      <td className="border-r-2 border-black">{item.hsn}</td>
-                      <td className="border-r-2 border-black">{item.qty} PCS</td>
-                      <td className="border-r-2 border-black">{item.taxableValue > 0 ? (item.taxableValue / (parseFloat(item.qty)||1)).toFixed(2) : ""}</td>
-                      <td className="text-right pr-2 text-[12pt] font-black">{item.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <div className="flex justify-between mb-8 border-t-2 border-black pt-5 text-[11pt] leading-relaxed">
+                  <div className="flex-1 space-y-2.5">
+                    <div className="font-bold uppercase underline tracking-wider">Details of Receiver :</div>
+                    <div className="flex gap-2"><span>M/s.</span> <span className="font-black text-[13pt] uppercase">{receiver.name || "_________________________________"}</span></div>
+                    <div className="flex gap-2"><span>Address :</span> <span className="font-bold italic flex-1 uppercase">{receiver.address || "______________________________________________________"}</span></div>
+                    <div className="flex gap-2 mt-4"><span>GSTIN / Unique ID :</span> <span className="font-black uppercase tracking-widest text-[12pt]">{receiver.gstin || "____________________"}</span></div>
+                  </div>
+                  <div className="w-[75mm] space-y-3 pl-6 border-l-2 border-black">
+                    <div className="flex justify-between items-center"><span>Invoice No. :</span> <span className="font-black text-[12pt] uppercase">{invoiceDetails.no || "N/A"}</span></div>
+                    <div className="flex justify-between items-center border-b border-zinc-300 pb-1"><span>Date :</span> <span className="font-black text-[12pt]">{invoiceDetails.date ? new Date(invoiceDetails.date).toLocaleDateString('en-GB') : ""}</span></div>
+                    <div className="text-[9pt] mt-4 font-black uppercase leading-tight italic text-zinc-500 text-right">Supply of Goods under GST<br/>(Fill in the State Code)</div>
+                  </div>
+                </div>
+
+                <table className="w-full border-collapse border-2 border-black mb-8 text-[11pt]">
+                  <thead>
+                    <tr className="border-b-2 border-black font-black uppercase bg-zinc-50 text-[10pt]">
+                      <th className="border-r-2 border-black py-2 w-[12mm]">Sl. No.</th>
+                      <th className="border-r-2 border-black py-2 text-left px-4">Description of Goods</th>
+                      <th className="border-r-2 border-black py-2 w-[25mm]">HSN Code</th>
+                      <th className="border-r-2 border-black py-2 w-[30mm]">Quantity Unit</th>
+                      <th className="border-r-2 border-black py-2 w-[28mm]">Rate</th>
+                      <th className="py-2 w-[40mm]">Amount Rs.</th>
                     </tr>
-                  ))}
-                  {[...Array(Math.max(0, 12 - items.length))].map((_, i) => (
-                    <tr key={`empty-${i}`} className="border-b border-zinc-100 h-[10mm]">
-                      <td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="font-bold">
+                    {items.map((item, i) => (
+                      <tr key={i} className="border-b border-zinc-200 h-[10mm] text-center italic">
+                        <td className="border-r-2 border-black">{i+1}</td>
+                        <td className="border-r-2 border-black text-left px-4 font-black uppercase not-italic text-[10.5pt]">{item.desc}</td>
+                        <td className="border-r-2 border-black">{item.hsn}</td>
+                        <td className="border-r-2 border-black">{item.qty} PCS</td>
+                        <td className="border-r-2 border-black">{item.taxableValue > 0 ? (item.taxableValue / (parseFloat(item.qty)||1)).toFixed(2) : ""}</td>
+                        <td className="text-right pr-2 text-[12pt] font-black">{item.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                    {[...Array(Math.max(0, 10 - items.length))].map((_, i) => (
+                      <tr key={`empty-${i}`} className="border-b border-zinc-100 h-[10mm]">
+                        <td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-              {/* TAX SUMMARY BLOCK */}
-              <div className="flex gap-8 mt-auto pt-4">
-                <div className="flex-1">
-                  <table className="w-full border-2 border-black text-[9.5pt] font-black">
-                    <thead>
-                      <tr className="border-b-2 border-black uppercase bg-zinc-50">
-                        <th className="border-r-2 border-black py-1">HSN Code</th>
-                        <th className="border-r-2 border-black py-1">Taxable Value</th>
-                        <th className="border-r-2 border-black py-1">Rate</th>
-                        <th className="border-r-2 border-black py-1">CGST</th>
-                        <th className="border-r-2 border-black py-1">SGST</th>
-                        <th className="py-1">IGST</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="h-[10mm] border-b-2 border-black text-right pr-2">
-                        <td className="border-r-2 border-black text-center">-</td>
-                        <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r-2 border-black text-center">{items.length > 0 ? (items.every(i => i.gstRate === items[0].gstRate) ? items[0].gstRate + '%' : 'Mixed') : '0%'}</td>
-                        <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="pr-2">0.00</td>
-                      </tr>
-                      <tr className="uppercase bg-zinc-50">
-                        <td className="border-r-2 border-black text-center py-1.5">TOTAL</td>
-                        <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r-2 border-black"></td>
-                        <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="pr-2">0.00</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="flex gap-8 mt-auto pt-4">
+                  <div className="flex-1">
+                    <table className="w-full border-2 border-black text-[9.5pt] font-black">
+                      <thead>
+                        <tr className="border-b-2 border-black uppercase bg-zinc-50">
+                          <th className="border-r-2 border-black py-1">HSN Code</th>
+                          <th className="border-r-2 border-black py-1">Taxable Value</th>
+                          <th className="border-r-2 border-black py-1">Rate</th>
+                          <th className="border-r-2 border-black py-1">CGST</th>
+                          <th className="border-r-2 border-black py-1">SGST</th>
+                          <th className="py-1">IGST</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="h-[10mm] border-b-2 border-black text-right pr-2">
+                          <td className="border-r-2 border-black text-center">-</td>
+                          <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="border-r-2 border-black text-center">{items.length > 0 ? (items.every(i => i.gstRate === items[0].gstRate) ? items[0].gstRate + '%' : 'Mixed') : '0%'}</td>
+                          <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="pr-2">0.00</td>
+                        </tr>
+                        <tr className="uppercase bg-zinc-50">
+                          <td className="border-r-2 border-black text-center py-1.5">TOTAL</td>
+                          <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="border-r-2 border-black"></td>
+                          <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td className="pr-2">0.00</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="w-[80mm] border-2 border-black p-5 space-y-3 bg-zinc-50/50">
+                    <div className="flex justify-between font-bold text-[10.5pt]"><span>Total Taxable Value</span> <span className="font-black">₹{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-zinc-600 text-[10pt]"><span>Add : CGST @ 9%</span> <span className="font-bold">₹{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-zinc-600 text-[10pt] border-b-2 border-black pb-3"><span>Add : SGST @ 9%</span> <span className="font-bold">₹{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between pt-3 font-black text-[18pt] tracking-tighter text-blue-800 italic underline underline-offset-4 decoration-2">
+                      <span>GRAND TOTAL</span> 
+                      <span>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="w-[80mm] border-2 border-black p-5 space-y-3 bg-zinc-50/50">
-                  <div className="flex justify-between font-bold text-[10.5pt]"><span>Total Taxable Value</span> <span className="font-black">₹{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between text-zinc-600 text-[10pt]"><span>Add : CGST @ 9%</span> <span className="font-bold">₹{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between text-zinc-600 text-[10pt] border-b-2 border-black pb-3"><span>Add : SGST @ 9%</span> <span className="font-bold">₹{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between pt-3 font-black text-[18pt] tracking-tighter text-blue-800 italic underline underline-offset-4 decoration-2">
-                    <span>GRAND TOTAL</span> 
-                    <span>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <div className="mt-12 border-t-2 border-black flex justify-between items-end pb-4 pt-10">
+                  <div className="flex-1 pr-14">
+                    <div className="font-black uppercase text-[10pt] mb-3 underline decoration-black decoration-1 underline-offset-4">Total Invoice Value (In words) :</div>
+                    <div className="border-b-2 border-dotted border-zinc-500 w-full h-[12mm] italic text-zinc-800 text-[14pt] font-black pt-1 uppercase flex items-center justify-center text-center leading-none">
+                      Rupees Only
+                    </div>
+                  </div>
+                  <div className="text-center min-w-[65mm]">
+                    <div className="font-black uppercase text-[10pt] mb-16 tracking-tight">For JOY RAM STEEL</div>
+                    <div className="font-black uppercase text-[11pt] border-t-2 border-black pt-2 tracking-[0.2em] italic">Proprietor</div>
                   </div>
                 </div>
               </div>
-
-              {/* FOOTER AREA */}
-              <div className="mt-12 border-t-2 border-black flex justify-between items-end pb-4 pt-10">
-                <div className="flex-1 pr-14">
-                  <div className="font-black uppercase text-[10pt] mb-3 underline decoration-black decoration-1 underline-offset-4">Total Invoice Value (In words) :</div>
-                  <div className="border-b-2 border-dotted border-zinc-500 w-full h-[12mm] italic text-zinc-800 text-[14pt] font-black pt-1 uppercase flex items-center justify-center text-center">
-                    Rupees {grandTotal > 0 ? "_____________________" : ""} Only
-                  </div>
-                </div>
-                <div className="text-center min-w-[65mm]">
-                  <div className="font-black uppercase text-[10pt] mb-16 tracking-tight">For JOY RAM STEEL</div>
-                  <div className="font-black uppercase text-[11pt] border-t-2 border-black pt-2 tracking-[0.2em] italic">Proprietor</div>
-                </div>
-              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
