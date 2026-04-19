@@ -1,9 +1,22 @@
--- Supabase Schema for Joy Ram Steel POS (VyaparSyncDB)
--- Run this in your Supabase SQL Editor.
--- This script uses 'IF NOT EXISTS' to safely add tables without errors.
+# Supabase Database Setup for Joy Ram Steel
 
--- 1. Products Table
-CREATE TABLE IF NOT EXISTS products (
+To fix the sync issues across different browsers, follow these steps exactly:
+
+### 1. Execute the SQL Schema
+Copy the code block below and paste it into your **Supabase Dashboard** -> **SQL Editor** and click **Run**.
+
+```sql
+-- CLEANUP: Removes existing tables to ensure a fresh, correct sync setup.
+DROP TABLE IF EXISTS sale_items;
+DROP TABLE IF EXISTS sales;
+DROP TABLE IF EXISTS variants;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS khata_transactions;
+DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS bills;
+
+-- 1. Products
+CREATE TABLE products (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
@@ -12,8 +25,8 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TEXT NOT NULL
 );
 
--- 2. Variants Table
-CREATE TABLE IF NOT EXISTS variants (
+-- 2. Variants
+CREATE TABLE variants (
     id TEXT PRIMARY KEY,
     product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
     size TEXT NOT NULL,
@@ -27,8 +40,8 @@ CREATE TABLE IF NOT EXISTS variants (
     created_at TEXT NOT NULL
 );
 
--- 3. Customers Table
-CREATE TABLE IF NOT EXISTS customers (
+-- 3. Customers
+CREATE TABLE customers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
@@ -37,8 +50,8 @@ CREATE TABLE IF NOT EXISTS customers (
     status TEXT NOT NULL
 );
 
--- 4. Sales Table
-CREATE TABLE IF NOT EXISTS sales (
+-- 4. Sales
+CREATE TABLE sales (
     id TEXT PRIMARY KEY,
     total_amount NUMERIC NOT NULL,
     discount NUMERIC NOT NULL DEFAULT 0,
@@ -51,8 +64,8 @@ CREATE TABLE IF NOT EXISTS sales (
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
 
--- 5. Sale Items Table
-CREATE TABLE IF NOT EXISTS sale_items (
+-- 5. Sale Items
+CREATE TABLE sale_items (
     id TEXT PRIMARY KEY,
     sale_id TEXT REFERENCES sales(id) ON DELETE CASCADE,
     variant_id TEXT REFERENCES variants(id),
@@ -61,8 +74,8 @@ CREATE TABLE IF NOT EXISTS sale_items (
     subtotal NUMERIC NOT NULL
 );
 
--- 6. Bills Table
-CREATE TABLE IF NOT EXISTS bills (
+-- 6. Bills
+CREATE TABLE bills (
     id TEXT PRIMARY KEY,
     supplier TEXT NOT NULL,
     date TEXT NOT NULL,
@@ -71,8 +84,8 @@ CREATE TABLE IF NOT EXISTS bills (
     image_url TEXT
 );
 
--- 7. Khata Transactions Table
-CREATE TABLE IF NOT EXISTS khata_transactions (
+-- 7. Khata Transactions
+CREATE TABLE khata_transactions (
     id TEXT PRIMARY KEY,
     customer_id TEXT REFERENCES customers(id) ON DELETE CASCADE,
     amount NUMERIC NOT NULL,
@@ -83,14 +96,18 @@ CREATE TABLE IF NOT EXISTS khata_transactions (
     notes TEXT,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
+```
 
--- Enable Row Level Security (Optional but recommended)
--- By default, this script keeps RLS disabled for testing.
--- To enable later, uncomment the lines below:
--- ALTER TABLE products ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE variants ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE khata_transactions ENABLE ROW LEVEL SECURITY;
+### 2. Disable Row Level Security (RLS)
+This is the most important step for the sync to start working:
+1. Go to **Supabase Dashboard** -> **Table Editor**.
+2. For **each** of the 7 tables created above, look at the top right corner.
+3. Click on the **RLS** badge (it likely says "RLS Enabled").
+4. Select **Disable RLS** and confirm.
+5. Repeat this for all tables.
+
+### 3. Final Verification
+- Refresh your website on both browsers.
+- Add an item in one browser.
+- Wait 5-10 seconds.
+- It should automatically appear in the other browser!
