@@ -44,8 +44,9 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="p-4 border-t text-xs text-center text-slate-400 font-medium">
-        Vyapar Sync v1.0
+      <div className="p-4 border-t text-xs text-center text-slate-400 font-medium flex flex-col items-center gap-1">
+        <span>Vyapar Sync v1.0</span>
+        <span className="text-[10px] text-slate-300">Created by @rajdeep.0.21</span>
       </div>
     </div>
   );

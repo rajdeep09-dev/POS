@@ -193,7 +193,7 @@ export default function POS() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute top-full left-0 right-0 mt-4 bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-zinc-100 overflow-hidden flex flex-col max-h-[400px] z-50"
+                  className="fixed inset-x-0 bottom-0 top-[160px] z-[100] md:absolute md:inset-auto md:bottom-auto md:top-full md:left-0 md:right-0 md:mt-4 bg-white/95 md:bg-white/90 backdrop-blur-3xl md:backdrop-blur-2xl rounded-t-3xl md:rounded-3xl shadow-[0_-8px_32px_-12px_rgba(0,0,0,0.2)] md:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-zinc-200 md:border-zinc-100 overflow-hidden flex flex-col md:max-h-[400px] md:z-50"
                 >
                   <ScrollArea className="flex-1">
                     {filteredCatalog.length === 0 ? (

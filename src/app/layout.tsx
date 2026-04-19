@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { AIChatBot } from "@/components/AIChatBot";
+import { GlobalLoader } from "@/components/GlobalLoader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#f4f4f5] min-h-[100dvh] overscroll-none text-zinc-900`}>
+        <GlobalLoader />
+        <SyncEngine />
         <div className="flex flex-col h-[100dvh] overflow-hidden bg-gradient-to-br from-[#fafafa] to-[#f4f4f5] selection:bg-zinc-200">
           <Header />
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-28 md:pb-28 scroll-smooth relative">
@@ -52,6 +55,10 @@ export default function RootLayout({
         </div>
         <Toaster />
       </body>
+    </html>
+  );
+}
+    </body>
     </html>
   );
 }

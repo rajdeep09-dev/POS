@@ -1,12 +1,13 @@
 "use client";
 
-import { Bell, WifiOff } from "lucide-react";
+import { Bell, WifiOff, Cloud, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 export function Header() {
   const [isOnline, setIsOnline] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing">("synced");
   const pathname = usePathname();
   
   let title = "Command Center";
@@ -36,6 +37,15 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
+        {isOnline && (
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-zinc-50/50 text-zinc-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-zinc-100">
+            {syncStatus === 'syncing' ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Syncing</>
+            ) : (
+              <><Cloud className="h-3 w-3" /> Synced</>
+            )}
+          </div>
+        )}
         {!isOnline && (
           <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-100">
             <WifiOff className="h-4 w-4" />

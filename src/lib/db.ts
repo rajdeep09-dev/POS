@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   category: string;
   image_url?: string;
+  gst_rate?: number;
   created_at: string;
 }
 

@@ -70,13 +70,11 @@ export async function POST(req: Request) {
     console.log("AI Route: Raw response:", aiText);
 
     // Manual JSON cleaning
-    if (aiText.includes("```json")) {
-      aiText = aiText.split("```json")[1].split("```")[0].trim();
-    } else if (aiText.includes("```")) {
-      aiText = aiText.split("```")[1].split("```")[0].trim();
+    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No JSON object found in the response.");
     }
-
-    const extractedData = JSON.parse(aiText);
+    const extractedData = JSON.parse(jsonMatch[0]);
     const { productName, quantity } = extractedData;
 
     // --- Optional Cloud Sync (Supabase) ---

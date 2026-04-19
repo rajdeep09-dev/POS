@@ -127,12 +127,13 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
         </div>
 
         {/* Strict A4 Preview Panel */}
-        <div className="flex-1 h-full overflow-auto p-4 md:p-12 flex justify-center bg-zinc-100/50">
-          <div 
-            ref={ewayRef}
-            className="bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] origin-top scale-[0.5] sm:scale-100 flex flex-col p-[15mm]"
-            style={{ width: '210mm', minHeight: '297mm', color: '#000', fontFamily: 'sans-serif' }}
-          >
+        <div className="flex-1 h-full overflow-auto overflow-x-auto p-4 md:p-12 flex justify-start md:justify-center items-start bg-zinc-100/50">
+          <div className="min-w-[800px] shrink-0 flex justify-center">
+            <div 
+              ref={ewayRef}
+              className="bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] flex flex-col p-[15mm] shrink-0"
+              style={{ width: '210mm', minHeight: '297mm', color: '#000', fontFamily: 'sans-serif' }}
+            >
             <div className="flex justify-between items-start mb-10">
               <h1 className="text-[24pt] font-black tracking-tight border-b-4 border-black pb-2">e-Way Bill</h1>
               <div className="border-4 border-black p-2">
@@ -229,6 +230,7 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
                 <div className="absolute -bottom-6 font-black tracking-[1.2em] text-[10pt] pl-4">{details.no.replace(/\s/g, '')}</div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </DialogContent>

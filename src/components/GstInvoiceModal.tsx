@@ -34,12 +34,12 @@ interface GstInvoiceModalProps {
 
 export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
-  const [items, setItems] = useState([{ desc: "", hsn: "", qty: "1", finalRate: "", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
+  const [items, setItems] = useState([{ desc: "", hsn: "", qty: "1", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
   const [receiver, setReceiver] = useState({ name: "", address: "", gstin: "" });
   const [invoiceDetails, setInvoiceDetails] = useState({ no: "", date: new Date().toISOString().split('T')[0] });
 
   const addItem = () => {
-    setItems([...items, { desc: "", hsn: "", qty: "1", finalRate: "", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
+    setItems([...items, { desc: "", hsn: "", qty: "1", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
   };
 
   const updateItem = (index: number, field: string, value: string) => {
@@ -48,13 +48,13 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
     
     // Calculate Backward GST (Inclusive to Exclusive)
     // Formula: Taxable Value = Total / (1 + GST_Rate)
-    // Assuming 18% GST (9% CGST + 9% SGST)
     const qty = parseFloat(newItems[index].qty) || 0;
     const finalRate = parseFloat(newItems[index].finalRate) || 0;
+    const gstRate = parseFloat(newItems[index].gstRate) || 18;
     const totalAmount = qty * finalRate;
     
     if (totalAmount > 0) {
-      const taxable = totalAmount / 1.18;
+      const taxable = totalAmount / (1 + (gstRate / 100));
       const gstAmount = totalAmount - taxable;
       
       newItems[index].taxableValue = parseFloat(taxable.toFixed(2));
@@ -181,10 +181,11 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
               {items.map((item, index) => (
                 <div key={index} className="bg-zinc-50 p-5 rounded-[1.5rem] border border-zinc-100 space-y-3 relative group">
                   <Input value={item.desc} onChange={e => updateItem(index, 'desc', e.target.value)} placeholder="Description of Goods" className="h-10 bg-white border-zinc-200 font-bold text-xs rounded-xl" />
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <Input value={item.hsn} onChange={e => updateItem(index, 'hsn', e.target.value)} placeholder="HSN" className="h-10 bg-white border-zinc-200 text-xs rounded-xl" />
                     <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold" />
                     <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="Price/Unit" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600" />
+                    <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="GST %" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600" />
                   </div>
                   {items.length > 1 && (
                     <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-2 -right-2 bg-white shadow-md rounded-full h-8 w-8 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button>
@@ -209,11 +210,11 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
         </div>
 
         {/* Real-Time A4 Mirror Preview */}
-        <div className="flex-1 h-full overflow-auto bg-zinc-900/20 p-4 md:p-12 flex items-start justify-center scrollbar-hide">
-          <div className="origin-top scale-[0.45] sm:scale-[0.8] lg:scale-[1.0]">
+        <div className="flex-1 h-full overflow-auto bg-zinc-900/20 p-4 md:p-12 flex items-start justify-start lg:justify-center scrollbar-hide">
+          <div className="min-w-[800px] shrink-0 flex justify-center">
             <div 
               ref={invoiceRef}
-              className="bg-white shadow-[0_40px_100px_rgba(0,0,0,0.4)] flex flex-col p-[15mm] text-black"
+              className="bg-white shadow-[0_40px_100px_rgba(0,0,0,0.4)] flex flex-col p-[15mm] text-black shrink-0"
               style={{ width: '210mm', minHeight: '297mm', fontFamily: "'Times New Roman', serif" }}
             >
               {/* EXACT HEADER REPLICA FROM gst.jpg */}
@@ -299,7 +300,7 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
                       <tr className="h-[10mm] border-b-2 border-black text-right pr-2">
                         <td className="border-r-2 border-black text-center">-</td>
                         <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="border-r-2 border-black text-center">18%</td>
+                        <td className="border-r-2 border-black text-center">{items.length > 0 ? (items.every(i => i.gstRate === items[0].gstRate) ? items[0].gstRate + '%' : 'Mixed') : '0%'}</td>
                         <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         <td className="pr-2">0.00</td>
