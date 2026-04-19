@@ -89,78 +89,90 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[100vw] w-full h-[100dvh] m-0 p-0 border-none bg-zinc-950/40 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden rounded-none text-left">
+      <DialogContent className="!fixed !inset-0 !max-w-none !w-screen !h-[100dvh] !m-0 !p-0 !border-none !bg-zinc-950/95 !backdrop-blur-3xl flex flex-col md:flex-row overflow-hidden !rounded-none !shadow-none !ring-0 !transform-none !top-0 !left-0 !z-[5000]">
         
         {/* Form Panel */}
-        <div className="w-full md:w-[400px] h-full bg-white border-r border-zinc-200 overflow-y-auto p-8 flex flex-col gap-8 shadow-2xl z-10">
+        <div className="w-full md:w-[450px] h-[50dvh] md:h-full bg-white border-b md:border-b-0 md:border-r border-zinc-100 overflow-y-auto p-6 md:p-10 flex flex-col gap-8 shadow-2xl z-10 shrink-0">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black uppercase tracking-tight">eWay Bill Generator</h2>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full"><X className="h-5 w-5" /></Button>
+            <div>
+              <h2 className="text-2xl font-black italic tracking-tighter uppercase leading-none">eWay Bill</h2>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-2">Logistics Manifest</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-100 h-12 w-12"><X className="h-5 w-5 text-zinc-400" /></Button>
           </div>
 
-          <div className="space-y-4 text-left">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">e-Way Bill Number</Label>
-              <Input value={details.no} onChange={e => setDetails({...details, no: e.target.value})} className="h-12 rounded-xl font-bold" />
+          <div className="space-y-6 text-left">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">e-Way Bill Number</Label>
+              <Input value={details.no} onChange={e => setDetails({...details, no: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-lg shadow-inner text-center" />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Receiver GSTIN</Label>
-                <Input value={details.toGstin} onChange={e => setDetails({...details, toGstin: e.target.value})} placeholder="Customer GSTIN" className="h-12 rounded-xl uppercase" />
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Receiver GSTIN</Label>
+                <Input value={details.toGstin} onChange={e => setDetails({...details, toGstin: e.target.value})} placeholder="Customer GSTIN" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black uppercase shadow-inner" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Receiver Name</Label>
-                <Input value={details.toName} onChange={e => setDetails({...details, toName: e.target.value})} placeholder="Customer Name" className="h-12 rounded-xl" />
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Receiver Name</Label>
+                <Input value={details.toName} onChange={e => setDetails({...details, toName: e.target.value})} placeholder="Customer Name" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold shadow-inner" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Transporter</Label>
-                <Input value={details.transporter} onChange={e => setDetails({...details, transporter: e.target.value})} className="h-12 rounded-xl" />
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Transporter</Label>
+                <Input value={details.transporter} onChange={e => setDetails({...details, transporter: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold shadow-inner" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Vehicle No.</Label>
-                <Input value={details.vehicleNo} onChange={e => setDetails({...details, vehicleNo: e.target.value})} className="h-12 rounded-xl uppercase" />
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Vehicle No.</Label>
+                <Input value={details.vehicleNo} onChange={e => setDetails({...details, vehicleNo: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black uppercase shadow-inner" />
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-zinc-100">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Goods Details</Label>
+            <div className="space-y-4 pt-6 border-t border-zinc-100">
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Goods Selection</Label>
               <ProductSearch onSelect={handleProductSelect} placeholder="Search product to bill..." />
               
-              <div className="space-y-3 p-4 bg-zinc-50 rounded-2xl">
-                <Input value={details.itemName} onChange={e => setDetails({...details, itemName: e.target.value})} placeholder="Product Name" className="h-10 bg-white font-bold text-xs rounded-xl" />
-                <div className="grid grid-cols-3 gap-2">
-                  <Input value={details.itemHsn} onChange={e => setDetails({...details, itemHsn: e.target.value})} placeholder="HSN" className="h-10 bg-white text-xs rounded-xl" />
-                  <Input value={details.itemQty} onChange={e => setDetails({...details, itemQty: e.target.value})} placeholder="Qty" className="h-10 bg-white text-xs rounded-xl" />
-                  <Input value={details.itemAmount} onChange={e => setDetails({...details, itemAmount: e.target.value})} placeholder="Amount" className="h-10 bg-white text-xs rounded-xl font-black" />
+              <div className="space-y-3 p-5 bg-zinc-50/50 rounded-[2rem] border border-zinc-100">
+                <Input value={details.itemName} onChange={e => setDetails({...details, itemName: e.target.value})} placeholder="Product Name" className="h-12 bg-white border-zinc-200 font-black text-xs rounded-xl shadow-sm uppercase" />
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">HSN</span>
+                    <Input value={details.itemHsn} onChange={e => setDetails({...details, itemHsn: e.target.value})} placeholder="HSN" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Qty</span>
+                    <Input value={details.itemQty} onChange={e => setDetails({...details, itemQty: e.target.value})} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Value</span>
+                    <Input value={details.itemAmount} onChange={e => setDetails({...details, itemAmount: e.target.value})} placeholder="Amount" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-auto pt-6 flex gap-2">
-            <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-xl h-12 font-bold text-xs"><Printer className="h-4 w-4 mr-2" /> PRINT</Button>
+          <div className="mt-auto pt-10 flex gap-4 pb-4">
+            <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-[1.5rem] h-20 border-2 border-zinc-100 font-black tracking-widest text-[10px] hover:bg-zinc-50 transition-all uppercase"><Printer className="h-6 w-6 mr-3 text-zinc-400" /> PRINT</Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button className="flex-1 rounded-xl h-12 bg-zinc-900 text-white font-bold text-xs" />} >
-                <Download className="h-4 w-4 mr-2" /> SAVE
+              <DropdownMenuTrigger render={<Button className="flex-1 rounded-[1.5rem] h-20 bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl hover:bg-zinc-800 transition-all uppercase" />} >
+                <Download className="h-6 w-6 mr-3 text-zinc-400" /> SAVE
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="rounded-xl p-2 border-none shadow-2xl">
-                <DropdownMenuItem onClick={downloadAsImage} className="rounded-lg h-10 flex gap-2 font-bold cursor-pointer"><ImageIcon className="h-4 w-4 text-blue-500" /> Image</DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadAsPDF} className="rounded-lg h-10 flex gap-2 font-bold cursor-pointer"><FileText className="h-4 w-4 text-red-500" /> PDF</DropdownMenuItem>
+              <DropdownMenuContent className="rounded-[1.5rem] p-3 border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] min-w-[220px] bg-white/95 backdrop-blur-3xl">
+                <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><ImageIcon className="h-6 w-6 text-blue-600" /> Save as Image</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><FileText className="h-6 w-6 text-red-600" /> Save as PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
-        {/* Strict A4 Preview Panel */}
-        <div className="flex-1 h-full overflow-auto overflow-x-auto p-4 md:p-12 flex justify-start md:justify-center items-start bg-zinc-100/50">
-          <div className="min-w-[800px] shrink-0 flex justify-center">
+        {/* Real-Time A4 Mirror Preview */}
+        <div className="flex-1 h-[55dvh] md:h-full overflow-auto bg-zinc-950/40 p-4 md:p-12 lg:p-20 flex items-start justify-center scrollbar-hide">
+          <div className="shrink-0 flex justify-center origin-top transform-gpu scale-[0.35] sm:scale-[0.5] md:scale-[0.65] lg:scale-[0.8] xl:scale-100 transition-transform duration-500">
             <div 
               ref={ewayRef}
-              className="bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] flex flex-col p-[15mm] shrink-0"
+              className="bg-white shadow-[0_60px_150px_rgba(0,0,0,0.6)] flex flex-col p-[15mm] shrink-0"
               style={{ width: '210mm', minHeight: '297mm', color: '#000', fontFamily: 'sans-serif' }}
             >
             <div className="flex justify-between items-start mb-10">

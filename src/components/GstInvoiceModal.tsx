@@ -165,83 +165,101 @@ export function GstInvoiceModal({ isOpen, onClose }: GstInvoiceModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[100vw] w-full h-[100dvh] m-0 p-0 border-none bg-zinc-900/90 backdrop-blur-2xl flex flex-col md:flex-row overflow-hidden rounded-none shadow-none ring-0">
+      <DialogContent className="!fixed !inset-0 !max-w-none !w-screen !h-[100dvh] !m-0 !p-0 !border-none !bg-zinc-900/95 !backdrop-blur-3xl flex flex-col md:flex-row overflow-hidden !rounded-none !shadow-none !ring-0 !transform-none !top-0 !left-0 !z-[5000]">
         
         {/* Input Form Panel */}
-        <div className="w-full md:w-[450px] h-full bg-white overflow-y-auto p-8 flex flex-col gap-8 shadow-2xl relative z-20">
+        <div className="w-full md:w-[450px] h-[45dvh] md:h-full bg-white overflow-y-auto p-6 md:p-10 flex flex-col gap-8 shadow-2xl relative z-20 shrink-0 border-b md:border-b-0 md:border-r border-zinc-100">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-black italic tracking-tight text-zinc-900">GST GEN</h2>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-100"><X className="h-6 w-6 text-zinc-400" /></Button>
+            <div>
+              <h2 className="text-3xl font-black italic tracking-tighter text-zinc-900 leading-none">GST GEN</h2>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-2">Professional Billing Engine</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-100 h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
           </div>
 
-          <div className="space-y-5">
-            <div className="space-y-2 text-left">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Billed To (Receiver)</Label>
-              <Input value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} placeholder="M/s. Customer Name" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 font-bold" />
-              <Input value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} placeholder="Full Address" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 font-bold" />
-              <Input value={receiver.gstin} onChange={e => setReceiver({...receiver, gstin: e.target.value})} placeholder="Receiver GSTIN" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 font-black uppercase" />
+          <div className="space-y-6">
+            <div className="space-y-3 text-left">
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Billed To (Receiver)</Label>
+              <div className="space-y-2">
+                <Input value={receiver.name} onChange={e => setReceiver({...receiver, name: e.target.value})} placeholder="M/s. Customer Name" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-base shadow-inner" />
+                <Input value={receiver.address} onChange={e => setReceiver({...receiver, address: e.target.value})} placeholder="Full Address" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold text-sm shadow-inner" />
+                <Input value={receiver.gstin} onChange={e => setReceiver({...receiver, gstin: e.target.value})} placeholder="Receiver GSTIN" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black uppercase text-base shadow-inner" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 text-left">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Invoice No.</Label>
-                <Input value={invoiceDetails.no} onChange={e => setInvoiceDetails({...invoiceDetails, no: e.target.value})} placeholder="JR/24-25/001" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 font-black" />
+              <div className="space-y-3 text-left">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Invoice No.</Label>
+                <Input value={invoiceDetails.no} onChange={e => setInvoiceDetails({...invoiceDetails, no: e.target.value})} placeholder="JR/24-25/001" className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-black text-center shadow-inner" />
               </div>
-              <div className="space-y-2 text-left">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Date</Label>
-                <Input type="date" value={invoiceDetails.date} onChange={e => setInvoiceDetails({...invoiceDetails, date: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 font-bold" />
+              <div className="space-y-3 text-left">
+                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Date</Label>
+                <Input type="date" value={invoiceDetails.date} onChange={e => setInvoiceDetails({...invoiceDetails, date: e.target.value})} className="h-14 rounded-2xl bg-zinc-50 border-zinc-100 focus:bg-white transition-all font-bold shadow-inner" />
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex flex-col gap-3">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 pl-1">Search & Add Inventory</Label>
+              <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 pl-1">Search & Add Inventory</Label>
               <div className="flex gap-2">
                 <ProductSearch onSelect={(p) => addItem(p)} className="flex-1" placeholder="Search product to add..." />
-                <Button onClick={() => addItem()} variant="outline" size="icon" className="h-12 w-12 rounded-xl border-zinc-200 shrink-0">
-                  <Plus className="h-5 w-5" />
+                <Button onClick={() => addItem()} variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-2 border-zinc-100 shrink-0 hover:bg-zinc-50 transition-all">
+                  <Plus className="h-6 w-6" />
                 </Button>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="bg-zinc-50 p-5 rounded-[1.5rem] border border-zinc-100 space-y-3 relative group">
-                  <Input value={item.desc} onChange={e => updateItem(index, 'desc', e.target.value)} placeholder="Description of Goods" className="h-10 bg-white border-zinc-200 font-bold text-xs rounded-xl" />
+                <div key={index} className="bg-zinc-50/50 p-5 rounded-[2rem] border border-zinc-100 space-y-4 relative group hover:border-zinc-200 transition-all shadow-sm">
+                  <Input value={item.desc} onChange={e => updateItem(index, 'desc', e.target.value)} placeholder="Description of Goods" className="h-12 bg-white border-zinc-200 font-black text-sm rounded-xl shadow-sm" />
                   <div className="grid grid-cols-4 gap-3">
-                    <Input value={item.hsn} onChange={e => updateItem(index, 'hsn', e.target.value)} placeholder="HSN" className="h-10 bg-white border-zinc-200 text-xs rounded-xl" />
-                    <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold" />
-                    <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="Price/Unit" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600" />
-                    <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="GST %" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600" />
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">HSN</span>
+                      <Input value={item.hsn} onChange={e => updateItem(index, 'hsn', e.target.value)} placeholder="HSN" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Qty</span>
+                      <Input type="number" value={item.qty} onChange={e => updateItem(index, 'qty', e.target.value)} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black shadow-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">Rate</span>
+                      <Input type="number" value={item.finalRate} onChange={e => updateItem(index, 'finalRate', e.target.value)} placeholder="Price" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[8px] font-black text-zinc-400 block uppercase pl-1">GST %</span>
+                      <Input type="number" value={item.gstRate} onChange={e => updateItem(index, 'gstRate', e.target.value)} placeholder="%" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-green-600 shadow-sm" />
+                    </div>
                   </div>
                   {items.length > 0 && (
-                    <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-2 -right-2 bg-white shadow-md rounded-full h-8 w-8 text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></Button>
+                    <Button onClick={() => removeItem(index)} variant="ghost" size="icon" className="absolute -top-3 -right-2 bg-white shadow-xl rounded-full h-9 w-9 text-red-500 hover:bg-red-50 border border-zinc-100 transition-all md:opacity-0 group-hover:opacity-100"><Trash2 className="h-4 w-4" /></Button>
                   )}
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-auto pt-8 flex gap-3">
-            <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-2xl h-16 border-2 border-zinc-100 font-black tracking-widest text-xs"><Printer className="h-5 w-5 mr-2" /> PRINT</Button>
+
+          <div className="mt-auto pt-10 flex gap-4 pb-4">
+            <Button onClick={() => window.print()} variant="outline" className="flex-1 rounded-[1.5rem] h-20 border-2 border-zinc-100 font-black tracking-widest text-[10px] hover:bg-zinc-50 transition-all uppercase"><Printer className="h-6 w-6 mr-3 text-zinc-400" /> PRINT</Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button className="flex-1 rounded-2xl h-16 bg-zinc-900 text-white font-black tracking-widest text-xs shadow-2xl" />} >
-                <Download className="h-5 w-5 mr-2" /> EXPORT
+              <DropdownMenuTrigger render={<Button className="flex-1 rounded-[1.5rem] h-20 bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl hover:bg-zinc-800 transition-all uppercase" />} >
+                <Download className="h-6 w-6 mr-3 text-zinc-400" /> EXPORT
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="rounded-2xl p-2 border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] min-w-[200px] bg-white/95 backdrop-blur-xl">
-                <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-14 flex gap-3 font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-zinc-50"><ImageIcon className="h-5 w-5 text-blue-600" /> Save as Image</DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-14 flex gap-3 font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-zinc-50"><FileText className="h-5 w-5 text-red-600" /> Save as PDF</DropdownMenuItem>
+              <DropdownMenuContent className="rounded-[1.5rem] p-3 border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] min-w-[220px] bg-white/95 backdrop-blur-3xl">
+                <DropdownMenuItem onClick={downloadAsImage} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><ImageIcon className="h-6 w-6 text-blue-600" /> Save as Image</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadAsPDF} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 transition-all"><FileText className="h-6 w-6 text-red-600" /> Save as PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
         {/* Real-Time A4 Mirror Preview */}
-        <div className="flex-1 h-full overflow-auto bg-zinc-900/20 p-4 md:p-12 flex items-start justify-start lg:justify-center scrollbar-hide">
-          <div className="min-w-[800px] shrink-0 flex justify-center">
+        <div className="flex-1 h-[55dvh] md:h-full overflow-auto bg-zinc-950/40 p-4 md:p-12 lg:p-20 flex items-start justify-center scrollbar-hide">
+          <div className="shrink-0 flex justify-center origin-top transform-gpu scale-[0.4] sm:scale-[0.55] md:scale-[0.7] lg:scale-[0.85] xl:scale-100 transition-transform duration-500">
             <div 
               ref={invoiceRef}
-              className="bg-white shadow-[0_40px_100px_rgba(0,0,0,0.4)] flex flex-col p-[15mm] text-black shrink-0"
+              className="bg-white shadow-[0_60px_150px_rgba(0,0,0,0.6)] flex flex-col p-[15mm] text-black shrink-0"
               style={{ width: '210mm', minHeight: '297mm', fontFamily: "'Times New Roman', serif" }}
             >
               {/* EXACT HEADER REPLICA FROM gst.jpg */}
