@@ -21,6 +21,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Joy Ram Steel POS",
   description: "Mobile-first POS and Inventory management system for Joy Ram Steel.",
+  icons: {
+    icon: "/joyramlogo.png",
+    apple: "/joyramlogo.png",
+  },
 };
 
 export const viewport: Viewport = {
