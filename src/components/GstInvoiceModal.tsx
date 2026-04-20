@@ -157,7 +157,8 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         data: JSON.stringify({ items, receiver, invoiceDetails, shopDetails }),
         updated_at: now,
         is_deleted: 0,
-        sync_status: 'pending'
+        sync_status: 'pending',
+        version_clock: Date.now()
       });
       toast.success("Invoice Synced to Archives");
     } catch { toast.error("Failed to sync invoice"); }

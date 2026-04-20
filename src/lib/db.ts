@@ -10,6 +10,7 @@ export interface Product {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface Variant {
@@ -31,6 +32,7 @@ export interface Variant {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface Sale {
@@ -46,6 +48,7 @@ export interface Sale {
   updated_at: string;
   sync_status: 'pending' | 'synced';
   is_deleted: number;
+  version_clock: number;
 }
 
 export interface SaleItem {
@@ -58,6 +61,7 @@ export interface SaleItem {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface Customer {
@@ -70,6 +74,7 @@ export interface Customer {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface KhataTransaction {
@@ -84,6 +89,7 @@ export interface KhataTransaction {
   sync_status: 'pending' | 'synced';
   updated_at: string;
   is_deleted: number;
+  version_clock: number;
 }
 
 export interface Bill {
@@ -96,6 +102,7 @@ export interface Bill {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface DigitalBill {
@@ -108,6 +115,7 @@ export interface DigitalBill {
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface ParkedCart {
@@ -130,16 +138,16 @@ const db = new Dexie('VyaparSyncDB') as Dexie & {
   parked_carts: EntityTable<ParkedCart, 'id'>;
 };
 
-// V10: Added parked_carts for Multi-Cart support
-db.version(10).stores({
-  products: 'id, name, category, updated_at, is_deleted, sync_status', 
-  variants: 'id, product_id, size, barcode, updated_at, is_deleted, unit, sync_status', 
-  sales: 'id, date, sync_status, updated_at, is_deleted',
-  sale_items: 'id, sale_id, variant_id, updated_at, is_deleted, sync_status',
-  customers: 'id, name, phone, status, updated_at, is_deleted, sync_status',
-  khata_transactions: 'id, customer_id, date, sync_status, updated_at, is_deleted',
-  bills: 'id, supplier, status, updated_at, is_deleted, sync_status',
-  digital_bills: 'id, type, bill_no, customer_name, date, sync_status, updated_at, is_deleted',
+// V11: Added version_clock for CRDT conflict resolution
+db.version(11).stores({
+  products: 'id, name, category, updated_at, is_deleted, sync_status, version_clock', 
+  variants: 'id, product_id, size, barcode, updated_at, is_deleted, unit, sync_status, version_clock', 
+  sales: 'id, date, sync_status, updated_at, is_deleted, version_clock',
+  sale_items: 'id, sale_id, variant_id, updated_at, is_deleted, sync_status, version_clock',
+  customers: 'id, name, phone, status, updated_at, is_deleted, sync_status, version_clock',
+  khata_transactions: 'id, customer_id, date, sync_status, updated_at, is_deleted, version_clock',
+  bills: 'id, supplier, status, updated_at, is_deleted, sync_status, version_clock',
+  digital_bills: 'id, type, bill_no, customer_name, date, sync_status, updated_at, is_deleted, version_clock',
   parked_carts: 'id, created_at'
 });
 

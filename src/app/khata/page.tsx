@@ -68,7 +68,8 @@ export default function Khata() {
         status: balance > 0 ? "Overdue" : "Clear",
         updated_at: now,
         is_deleted: 0,
-        sync_status: 'pending'
+        sync_status: 'pending',
+        version_clock: Date.now()
       });
       toast.success("Customer Added!");
       setNewName(""); setNewPhone(""); setNewBalance("");
@@ -219,7 +220,8 @@ function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, on
           notes: notes,
           sync_status: 'pending',
           updated_at: now,
-          is_deleted: 0
+          is_deleted: 0,
+          version_clock: Date.now()
         });
 
         const newBalance = Math.max(0, customer.balance - amount);

@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { fuzzyMatch } from "@/lib/fuzzy";
 
 interface ProductSearchProps {
   onSelect: (item: any) => void;
@@ -62,11 +63,12 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
   }, []);
 
   const filtered = (catalog || []).filter(item => {
-    const searchLower = search.toLowerCase();
+    if (!search) return true;
+    
     return (
-      item.productName.toLowerCase().includes(searchLower) ||
-      item.category.toLowerCase().includes(searchLower) ||
-      item.size.toLowerCase().includes(searchLower) ||
+      fuzzyMatch(search, item.productName, 1) ||
+      fuzzyMatch(search, item.category, 1) ||
+      fuzzyMatch(search, item.size, 1) ||
       item.barcode?.includes(search)
     );
   }).slice(0, 8);
@@ -140,7 +142,6 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Mobile/Desktop Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -155,13 +156,10 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
               exit={{ opacity: 0, y: 10 }}
               className={cn(
                 "z-[1000] flex flex-col overflow-hidden",
-                // Mobile Styles: Full screen drawer
                 "fixed inset-x-0 bottom-0 top-auto h-[85vh] bg-white rounded-t-[3.5rem] shadow-[0_-20px_80px_rgba(0,0,0,0.3)] md:h-auto",
-                // Desktop Styles: Dropdown attached to input
                 "md:absolute md:top-full md:inset-x-0 md:bottom-auto md:bg-white md:border-2 md:border-zinc-900 md:border-t-0 md:rounded-b-[2.5rem] md:rounded-t-none md:shadow-2xl"
               )}
             >
-              {/* Mobile Handle */}
               <div className="md:hidden w-16 h-1.5 bg-zinc-200 rounded-full mx-auto my-6 shrink-0" />
               
               <div className="px-8 pb-4 flex items-center justify-between md:hidden">
@@ -170,7 +168,6 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
               </div>
 
               <div className="flex-1 min-h-0 flex flex-col">
-                {/* Section Headers */}
                 <div className="px-8 py-3 bg-zinc-50/50 flex items-center gap-3">
                    {search ? (
                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
@@ -192,7 +189,7 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
                         </div>
                         <p className="text-zinc-400 font-black italic text-lg tracking-tight">NO MATCHES FOUND</p>
                         <button 
-                          onClick={() => setSearch("")}
+                          onClick={() => handleSearchChange("")}
                           className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline"
                         >
                           View all inventory
@@ -271,7 +268,6 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
                   </div>
                 </ScrollArea>
                 
-                {/* Desktop Footer */}
                 <div className="hidden md:flex items-center justify-between px-8 py-4 border-t border-zinc-100 bg-zinc-50/50">
                    <div className="flex items-center gap-4 text-[9px] font-black text-zinc-400 uppercase tracking-widest">
                      <span className="flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> Select</span>

@@ -66,7 +66,11 @@ export function SyncEngine() {
         if (!pullError && cloudChanges && cloudChanges.length > 0) {
           for (const cloudItem of cloudChanges) {
             const localItem = await (table.db as any).get(cloudItem.id);
-            if (!localItem || new Date(cloudItem.updated_at) > new Date(localItem.updated_at)) {
+            // CRDT: If cloud has higher clock, it always wins
+            const cloudClock = cloudItem.version_clock || 0;
+            const localClock = localItem?.version_clock || 0;
+            
+            if (!localItem || cloudClock > localClock || (cloudClock === localClock && new Date(cloudItem.updated_at) > new Date(localItem.updated_at))) {
               await (table.db as any).put({ ...cloudItem, sync_status: 'synced' });
             }
           }

@@ -117,7 +117,8 @@ export function EWayBillModal({ isOpen, onClose, viewOnlyData }: EWayBillModalPr
         data: JSON.stringify({ items, details }),
         updated_at: now,
         is_deleted: 0,
-        sync_status: 'pending'
+        sync_status: 'pending',
+        version_clock: Date.now()
       });
       toast.success("eWay Bill Synced to Archives");
     } catch { toast.error("Failed to sync bill"); }

@@ -116,7 +116,8 @@ export function AIChatBot() {
             created_at: now,
             updated_at: now,
             is_deleted: 0,
-            sync_status: 'pending'
+            sync_status: 'pending',
+            version_clock: Date.now()
           });
         }
 
@@ -128,7 +129,8 @@ export function AIChatBot() {
               stock: variant.stock + quantity,
               base_price: mrp || variant.base_price,
               msp: msp || variant.msp,
-              updated_at: now
+              updated_at: now,
+              version_clock: (variant.version_clock || 0) + 1
             });
           } else {
             await db.variants.add({
@@ -145,7 +147,8 @@ export function AIChatBot() {
               created_at: now,
               updated_at: now,
               is_deleted: 0,
-              sync_status: 'pending'
+              sync_status: 'pending',
+              version_clock: Date.now()
             });
           }
         }

@@ -23,6 +23,8 @@ import { v4 as uuidv4 } from "uuid";
 import { ReceiptModal } from "@/components/ReceiptModal";
 import { GstInvoiceModal } from "@/components/GstInvoiceModal";
 import { ProductSearch } from "@/components/ProductSearch";
+import { usePOSEvents } from "@/hooks/usePOSEvents";
+import { ProductCard } from "@/components/ProductCard";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +46,18 @@ export default function POS() {
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "split" | "khata">("cash");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  
+  // Module 4: Integrated Keyboard Shortcuts
+  usePOSEvents({
+    onPayment: () => handleCheckout(),
+    onClear: () => { if(confirm("Clear cart?")) setCart([]); },
+    onSearchFocus: () => { 
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+      searchInput?.focus();
+    },
+    onNavigateUp: () => { /* Future: Navigate results */ },
+    onNavigateDown: () => { /* Future: Navigate results */ }
+  });
   
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
@@ -89,7 +103,8 @@ export default function POS() {
         ...v,
         productName: p?.name || "Unknown Product",
         category: p?.category || "Uncategorized",
-        image: v.image_url || p?.image_url
+        image: v.image_url || p?.image_url,
+        parentImage: p?.image_url
       };
     }).filter(v => v.productName !== "Unknown Product");
   }, []);
@@ -170,17 +185,22 @@ export default function POS() {
       await db.transaction('rw', db.sales, db.sale_items, db.variants, async () => {
         await db.sales.add({
           id: saleId, total_amount: finalTotal, discount: actualDiscount, payment_method: paymentMode,
-          date: now, updated_at: now, sync_status: 'pending', is_deleted: 0
+          date: now, updated_at: now, sync_status: 'pending', is_deleted: 0,
+          version_clock: Date.now() // Simple logical clock
         });
         for (const item of cart) {
           await db.sale_items.add({
             id: uuidv4(), sale_id: saleId, variant_id: item.id, quantity: item.qty,
             unit_price: item.base_price, subtotal: item.line_total, updated_at: now, is_deleted: 0,
-            sync_status: 'pending'
+            sync_status: 'pending', version_clock: Date.now()
           });
           const variant = await db.variants.get(item.id);
           // Task 4: Deduct exact literal qty from stock
-          if (variant) await db.variants.update(item.id, { stock: variant.stock - item.qty, updated_at: now });
+          if (variant) await db.variants.update(item.id, { 
+            stock: variant.stock - item.qty, 
+            updated_at: now,
+            version_clock: (variant.version_clock || 0) + 1 
+          });
         }
       });
       setLastSale({ id: saleId, total: finalTotal, discount: actualDiscount, paymentMethod: paymentMode, date: now });
@@ -265,19 +285,11 @@ export default function POS() {
           <ScrollArea className="flex-1 p-8">
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-8">
                {filteredCatalog.map((v) => (
-                <motion.div whileHover={{ y: -6, scale: 1.02 }} whileTap={{ scale: 0.96 }} key={v.id} onClick={() => addToCart(v)} className="bg-white border border-zinc-50 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 hover:shadow-zinc-300/80 cursor-pointer group flex flex-col transition-all duration-500">
-                  <div className="aspect-square relative overflow-hidden bg-zinc-50 shrink-0 shadow-inner">
-                    {v.image ? <img src={v.image} className="w-full h-full object-cover mix-blend-multiply group-hover:scale-110 transition-transform duration-1000" /> : <div className="w-full h-full flex items-center justify-center text-zinc-200"><Package className="h-16 w-16 opacity-30" /></div>}
-                    <div className="absolute top-5 right-5 bg-white/95 backdrop-blur-xl font-black px-4 py-2 rounded-2xl text-base shadow-2xl tracking-tighter border border-white/20">₹{v.base_price}</div>
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col gap-1 text-left">
-                    <h4 className="font-black text-zinc-900 leading-none text-xl group-hover:text-blue-600 transition-colors uppercase italic truncate">{v.productName}</h4>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">{v.size}</p>
-                    <div className="mt-auto pt-4 flex items-center justify-between">
-                       <span className={cn("text-[9px] font-black px-3 py-1 rounded-lg uppercase tracking-widest", v.stock < 5 ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-600")}>{v.stock} {v.unit?.toUpperCase() || 'PCS'} LEFT</span>
-                    </div>
-                  </div>
-                </motion.div>
+                <ProductCard 
+                  key={v.id} 
+                  variant={v} 
+                  onClick={() => addToCart(v)} 
+                />
               ))}
             </div>
           </ScrollArea>

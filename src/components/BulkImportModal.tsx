@@ -93,7 +93,8 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             created_at: now,
             updated_at: now,
             is_deleted: 0,
-            sync_status: 'pending'
+            sync_status: 'pending',
+            version_clock: Date.now()
           });
 
           await db.variants.add({
@@ -110,7 +111,8 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             created_at: now,
             updated_at: now,
             is_deleted: 0,
-            sync_status: 'pending'
+            sync_status: 'pending',
+            version_clock: Date.now()
           });
         }
       });
