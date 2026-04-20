@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown } from "lucide-react";
+import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown, DatabaseBackup } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -34,6 +34,10 @@ export function Header() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
+    // 4. Initial Sync Load
+    const saved = localStorage.getItem('last_db_sync');
+    if (saved) setLastSync(saved);
+
     return () => {
       clearInterval(timer);
       window.removeEventListener('database-synced', handleSync);
@@ -43,15 +47,21 @@ export function Header() {
   }, []);
 
   const handleClearCache = async () => {
-    if (confirm("Clear local cache? This will force a fresh sync from the cloud.")) {
+    if (confirm("DANGER: Clear local cache? This will wipe all unsynced data and force a fresh download from the cloud.")) {
         try {
+            localStorage.removeItem('last_db_sync');
             await db.delete();
-            toast.success("Cache cleared. Reloading...");
-            setTimeout(() => window.location.reload(), 1500);
+            toast.success("Cache cleared. Re-syncing...");
+            setTimeout(() => window.location.reload(), 1000);
         } catch {
             toast.error("Failed to clear cache");
         }
     }
+  };
+
+  const handleManualSync = () => {
+    toast.info("Force Syncing with Cloud...");
+    window.dispatchEvent(new Event('request-sync'));
   };
 
   let title = "Command Center";
@@ -81,7 +91,7 @@ export function Header() {
                 <div className="flex flex-col items-end gap-1.5 mr-2 cursor-pointer group">
                     {isOnline && (
                     <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100/50 shadow-sm group-hover:bg-emerald-100 transition-colors">
-                        <Cloud className="h-3 w-3" /> Synced <ChevronDown className="h-2 w-2 ml-1" />
+                        <Cloud className="h-3 w-3" /> Synced <ChevronDown className="h-2 w-2 ml-1 opacity-40 group-hover:opacity-100" />
                     </div>
                     )}
                     {lastSync && (
@@ -91,8 +101,11 @@ export function Header() {
                     )}
                 </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-zinc-100 bg-white/95 backdrop-blur-3xl">
-                <DropdownMenuItem onClick={handleClearCache} className="rounded-xl h-12 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50">
+            <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-zinc-100 bg-white/95 backdrop-blur-3xl w-48 z-[2000]">
+                <DropdownMenuItem onClick={handleManualSync} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50">
+                    <DatabaseBackup className="h-4 w-4 text-blue-600" /> Force Sync
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleClearCache} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50">
                     <RefreshCcw className="h-4 w-4" /> Clear Cache
                 </DropdownMenuItem>
             </DropdownMenuContent>
