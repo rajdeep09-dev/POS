@@ -110,41 +110,57 @@ db.version(6).stores({
   bills: 'id, supplier, status, updated_at, is_deleted'
 });
 
+// Global error handler
+db.on('versionchange', function() {
+  db.close();
+  if (typeof window !== 'undefined') {
+    window.location.reload();
+  }
+});
+
+db.on('blocked', () => {
+  console.error('Dexie database is blocked by another tab');
+});
+
 export const seedDatabase = async () => {
-  const productsCount = await db.products.count();
-  const now = new Date().toISOString();
-  if (productsCount === 0) {
-    await db.products.bulkAdd([
-      { id: "p1", name: "Blue Diamond Bucket", category: "Buckets", image_url: "https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?w=400&q=80", created_at: now, updated_at: now, is_deleted: 0 },
-      { id: "p2", name: "3-Tier Steel Tiffin", category: "Tiffins", image_url: "https://images.unsplash.com/photo-1596484552993-9c8646394bb5?w=400&q=80", created_at: now, updated_at: now, is_deleted: 0 }
-    ]);
-    await db.variants.bulkAdd([
-      { id: "v1", product_id: "p1", size: "Size 14", unit: 'pcs', stock: 12, dented_stock: 2, cost_price: 150, msp: 150, base_price: 200, created_at: now, updated_at: now, is_deleted: 0 },
-      { id: "v2", product_id: "p1", size: "Size 16", unit: 'pcs', stock: 8, dented_stock: 0, cost_price: 180, msp: 180, base_price: 250, created_at: now, updated_at: now, is_deleted: 0 },
-      { id: "v3", product_id: "p1", size: "Size 18", unit: 'pcs', stock: 3, dented_stock: 1, cost_price: 220, msp: 220, base_price: 300, created_at: now, updated_at: now, is_deleted: 0 },
-      { id: "v4", product_id: "p2", size: "Standard", unit: 'pcs', stock: 24, dented_stock: 0, cost_price: 300, msp: 300, base_price: 450, created_at: now, updated_at: now, is_deleted: 0 },
-      { id: "v5", product_id: "p2", size: "Large", unit: 'pcs', stock: 15, dented_stock: 3, cost_price: 400, msp: 400, base_price: 600, created_at: now, updated_at: now, is_deleted: 0 }
-    ]);
-  }
+  try {
+    const productsCount = await db.products.count();
+    const now = new Date().toISOString();
+    if (productsCount === 0) {
+      await db.products.bulkAdd([
+        { id: "p1", name: "Blue Diamond Bucket", category: "Buckets", image_url: "https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?w=400&q=80", created_at: now, updated_at: now, is_deleted: 0 },
+        { id: "p2", name: "3-Tier Steel Tiffin", category: "Tiffins", image_url: "https://images.unsplash.com/photo-1596484552993-9c8646394bb5?w=400&q=80", created_at: now, updated_at: now, is_deleted: 0 }
+      ]);
+      await db.variants.bulkAdd([
+        { id: "v1", product_id: "p1", size: "Size 14", unit: 'pcs', stock: 12, dented_stock: 2, cost_price: 150, msp: 150, base_price: 200, created_at: now, updated_at: now, is_deleted: 0 },
+        { id: "v2", product_id: "p1", size: "Size 16", unit: 'pcs', stock: 8, dented_stock: 0, cost_price: 180, msp: 180, base_price: 250, created_at: now, updated_at: now, is_deleted: 0 },
+        { id: "v3", product_id: "p1", size: "Size 18", unit: 'pcs', stock: 3, dented_stock: 1, cost_price: 220, msp: 220, base_price: 300, created_at: now, updated_at: now, is_deleted: 0 },
+        { id: "v4", product_id: "p2", size: "Standard", unit: 'pcs', stock: 24, dented_stock: 0, cost_price: 300, msp: 300, base_price: 450, created_at: now, updated_at: now, is_deleted: 0 },
+        { id: "v5", product_id: "p2", size: "Large", unit: 'pcs', stock: 15, dented_stock: 3, cost_price: 400, msp: 400, base_price: 600, created_at: now, updated_at: now, is_deleted: 0 }
+      ]);
+    }
 
-  const customersCount = await db.customers.count();
-  if (customersCount === 0) {
-    await db.customers.bulkAdd([
-      { id: "c1", name: "Ramesh Steel Traders", phone: "+91 9876543210", balance: 14500, last_tx: "2 Days ago", status: "Overdue", updated_at: now, is_deleted: 0 },
-      { id: "c2", name: "Hotel Grand Blue", phone: "+91 9876543211", balance: 45000, last_tx: "1 Week ago", status: "Overdue", updated_at: now, is_deleted: 0 },
-      { id: "c3", name: "Local Wedding Event", phone: "+91 9876543212", balance: 8000, last_tx: "Today", status: "Recent", updated_at: now, is_deleted: 0 },
-      { id: "c4", name: "Vikash Enterprises", phone: "+91 9876543213", balance: 2500, last_tx: "Yesterday", status: "Recent", updated_at: now, is_deleted: 0 },
-    ]);
-  }
+    const customersCount = await db.customers.count();
+    if (customersCount === 0) {
+      await db.customers.bulkAdd([
+        { id: "c1", name: "Ramesh Steel Traders", phone: "+91 9876543210", balance: 14500, last_tx: "2 Days ago", status: "Overdue", updated_at: now, is_deleted: 0 },
+        { id: "c2", name: "Hotel Grand Blue", phone: "+91 9876543211", balance: 45000, last_tx: "1 Week ago", status: "Overdue", updated_at: now, is_deleted: 0 },
+        { id: "c3", name: "Local Wedding Event", phone: "+91 9876543212", balance: 8000, last_tx: "Today", status: "Recent", updated_at: now, is_deleted: 0 },
+        { id: "c4", name: "Vikash Enterprises", phone: "+91 9876543213", balance: 2500, last_tx: "Yesterday", status: "Recent", updated_at: now, is_deleted: 0 },
+      ]);
+    }
 
-  const billsCount = await db.bills.count();
-  if (billsCount === 0) {
-    await db.bills.bulkAdd([
-      { id: "B-2023-01", supplier: "Global Steel Mfg", date: "24 Oct 2023", amount: 145000, status: "Paid", updated_at: now, is_deleted: 0 },
-      { id: "B-2023-02", supplier: "Premier Plastics", date: "26 Oct 2023", amount: 32000, status: "Pending", updated_at: now, is_deleted: 0 },
-      { id: "B-2023-03", supplier: "Milton Distributors", date: "28 Oct 2023", amount: 89000, status: "Paid", updated_at: now, is_deleted: 0 },
-      { id: "B-2023-04", supplier: "Vikash Steel Distributors", date: "29 Oct 2023", amount: 45000, status: "Pending", updated_at: now, is_deleted: 0 },
-    ]);
+    const billsCount = await db.bills.count();
+    if (billsCount === 0) {
+      await db.bills.bulkAdd([
+        { id: "B-2023-01", supplier: "Global Steel Mfg", date: "24 Oct 2023", amount: 145000, status: "Paid", updated_at: now, is_deleted: 0 },
+        { id: "B-2023-02", supplier: "Premier Plastics", date: "26 Oct 2023", amount: 32000, status: "Pending", updated_at: now, is_deleted: 0 },
+        { id: "B-2023-03", supplier: "Milton Distributors", date: "28 Oct 2023", amount: 89000, status: "Paid", updated_at: now, is_deleted: 0 },
+        { id: "B-2023-04", supplier: "Vikash Steel Distributors", date: "29 Oct 2023", amount: 45000, status: "Pending", updated_at: now, is_deleted: 0 },
+      ]);
+    }
+  } catch (err) {
+    console.error("Dexie seeding failed:", err);
   }
 };
 

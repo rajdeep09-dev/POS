@@ -336,7 +336,7 @@ export default function Inventory() {
                       <TableRow key={item.id} className="hover:bg-zinc-50 border-none transition-all text-left">
                         <TableCell className="pl-8 py-6"><div className="font-black text-zinc-900 uppercase tracking-tight italic">{item.productName}</div><div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">{item.size}</div></TableCell>
                         <TableCell><Badge className="bg-zinc-100 text-zinc-400 font-black text-[9px] uppercase shadow-none border-none">{item.category}</Badge></TableCell>
-                        <TableCell className="text-right"><span className={`font-black text-xl tracking-tighter ${item.stock < 5 ? 'text-red-500' : 'text-zinc-900'}`}>{item.stock}</span></TableCell>
+                        <TableCell className="text-right"><span className={`font-black text-xl tracking-tighter ${item.stock < 5 ? 'text-red-500' : 'text-zinc-900'}`}>{item.stock} <small className="text-[10px] text-zinc-400 uppercase">{item.unit || 'pcs'}</small></span></TableCell>
                         <TableCell className="text-right pr-8 font-black text-zinc-900 text-xl tracking-tighter">₹{item.base_price}</TableCell>
                       </TableRow>
                     ))}

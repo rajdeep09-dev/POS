@@ -70,8 +70,8 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
 
   // Catalog for dropdown
   const catalog = useLiveQuery(async () => {
-    const products = await db.products.toArray();
-    const variants = await db.variants.toArray();
+    const products = await db.products.where('is_deleted').equals(0).toArray();
+    const variants = await db.variants.where('is_deleted').equals(0).toArray();
     return variants.map(v => {
       const p = products.find(prod => prod.id === v.product_id);
       return { ...v, productName: p?.name || "Unknown", size: v.size };

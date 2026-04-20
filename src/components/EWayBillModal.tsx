@@ -56,8 +56,8 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
   });
 
   const catalog = useLiveQuery(async () => {
-    const products = await db.products.toArray();
-    const variants = await db.variants.toArray();
+    const products = await db.products.where('is_deleted').equals(0).toArray();
+    const variants = await db.variants.where('is_deleted').equals(0).toArray();
     return variants.map(v => {
       const p = products.find(prod => prod.id === v.product_id);
       return { ...v, productName: p?.name || "Unknown", size: v.size };
@@ -69,6 +69,7 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
       itemName: `${p.productName} - ${p.size}`.toUpperCase(),
       itemHsn: "7323",
       itemQty: "1.00",
+      unit: p.unit || 'pcs',
       itemAmount: p.base_price.toLocaleString('en-IN', { minimumFractionDigits: 2 })
     };
     setItems([...items, newItem]);
@@ -198,13 +199,20 @@ function EWayForm({ details, setDetails, items, setItems, handleProductSelect, r
                   <Input value={item.itemQty} onChange={e=>updateItem(idx, 'itemQty', e.target.value)} placeholder="Qty" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-bold shadow-sm" />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">Value</span>
-                  <Input value={item.itemAmount} onChange={e=>updateItem(idx, 'itemAmount', e.target.value)} placeholder="Value" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
+                  <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">Unit</span>
+                  <select value={item.unit} onChange={e=>updateItem(idx, 'unit', e.target.value)} className="w-full h-10 bg-white border border-zinc-200 text-xs rounded-xl font-black focus:ring-0 outline-none px-2 uppercase shadow-sm">
+                    <option value="pcs">PCS</option>
+                    <option value="kg">KG</option>
+                  </select>
                 </div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-black text-zinc-400 block uppercase pl-2">Value</span>
+                <Input value={item.itemAmount} onChange={e=>updateItem(idx, 'itemAmount', e.target.value)} placeholder="Value" className="h-10 bg-white border-zinc-200 text-xs rounded-xl font-black text-blue-600 shadow-sm" />
               </div>
             </div>
           ))}
-          <Button onClick={() => setItems([...items, { itemName: "", itemHsn: "7323", itemQty: "1.00", itemAmount: "" }])} variant="outline" className="w-full h-14 rounded-2xl border-dashed border-2 border-zinc-200 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-50 transition-all">
+          <Button onClick={() => setItems([...items, { itemName: "", itemHsn: "7323", itemQty: "1.00", unit: "pcs", itemAmount: "" }])} variant="outline" className="w-full h-14 rounded-2xl border-dashed border-2 border-zinc-200 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:bg-zinc-50 transition-all">
             <Plus className="h-4 w-4 mr-2" /> Add Manual Item
           </Button>
         </div>
@@ -247,7 +255,7 @@ const EWayPreview = React.forwardRef(({ details, items }: any, ref: any) => {
                 <tr key={i} className="h-[10mm] font-black uppercase italic border-b border-zinc-200 last:border-0 text-center">
                   <td className="p-2 border-r-2 border-black">{item.itemHsn}</td>
                   <td className="p-2 border-r-2 border-black text-left pl-4 font-black not-italic">{item.itemName}</td>
-                  <td className="p-2 border-r-2 border-black">{item.itemQty}</td>
+                  <td className="p-2 border-r-2 border-black text-center">{item.itemQty} {item.unit?.toUpperCase() || 'PCS'}</td>
                   <td className="p-2 text-right pr-4 font-black not-italic">₹{item.itemAmount}</td>
                 </tr>
               ))}

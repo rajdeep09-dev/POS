@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { useState, useEffect } from "react";
 
 const container = {
   hidden: { opacity: 0 },
@@ -25,20 +26,39 @@ const item = {
 };
 
 export default function Dashboard() {
+  const [isTimedOut, setIsTimedOut] = useState(false);
+
+  // Force load after 2 seconds if DB is hanging
+  useEffect(() => {
+    const timer = setTimeout(() => setIsTimedOut(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const sales = useLiveQuery(() => db.sales.toArray(), []);
   const saleItems = useLiveQuery(() => db.sale_items.toArray(), []);
   const variants = useLiveQuery(() => db.variants.toArray(), []);
   const products = useLiveQuery(() => db.products.toArray(), []);
   const customers = useLiveQuery(() => db.customers.toArray(), []);
 
-  const isDataLoading = sales === undefined || saleItems === undefined || variants === undefined || products === undefined || customers === undefined;
+  const isDataLoading = !isTimedOut && (sales === undefined || saleItems === undefined || variants === undefined || products === undefined || customers === undefined);
 
   if (isDataLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex flex-col items-center justify-center h-full gap-6">
         <div className="text-zinc-400 font-black uppercase tracking-[0.3em] animate-pulse text-xs">
           Initialising Systems...
         </div>
+        {isTimedOut && (
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (typeof window !== 'undefined') window.location.reload();
+            }}
+            className="rounded-xl border-zinc-200 font-black text-[10px] uppercase tracking-widest"
+          >
+            Refresh Database
+          </Button>
+        )}
       </div>
     );
   }

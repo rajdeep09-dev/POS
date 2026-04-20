@@ -394,10 +394,28 @@ export default function POS() {
                       </div>
                       
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <div className="font-black text-zinc-900 tracking-tighter text-lg">₹{item.base_price * item.qty}</div>
+                        <div className="font-black text-zinc-900 tracking-tighter text-lg">₹{(item.base_price * item.qty).toLocaleString()}</div>
                         <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner h-9">
                           <button onClick={() => updateQty(item.id, -1)} className="w-8 h-full flex items-center justify-center hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all active:scale-75"><Minus className="h-3 w-3" /></button>
-                          <span className="w-12 text-center font-black text-xs text-zinc-900">{item.qty} {item.unit || 'pcs'}</span>
+                          
+                          {item.unit === 'kg' ? (
+                            <input 
+                              type="number" 
+                              value={item.qty} 
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                  setCart(cart.map(c => c.id === item.id ? { ...c, qty: val } : c));
+                                }
+                              }}
+                              className="w-16 text-center font-black text-xs text-zinc-900 bg-transparent border-none focus:ring-0 outline-none p-0"
+                              step="0.1"
+                            />
+                          ) : (
+                            <span className="w-12 text-center font-black text-xs text-zinc-900">{item.qty}</span>
+                          )}
+                          
+                          <span className="text-[10px] font-black text-zinc-400 uppercase pr-2">{item.unit || 'pcs'}</span>
                           <button onClick={() => updateQty(item.id, 1)} className="w-8 h-full flex items-center justify-center hover:bg-white rounded-lg text-zinc-400 hover:text-zinc-900 transition-all active:scale-75"><Plus className="h-3 w-3" /></button>
                         </div>
                       </div>

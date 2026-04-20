@@ -45,19 +45,24 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
   const handleParseData = () => {
     if (!rawText.trim()) return toast.error("Paste some data first!");
     
-    // Simple parsing logic: Item Name, Category, Qty, MRP
+    // Simple parsing logic: Item Name, Category, Qty, MRP, MSP, Unit
     const lines = rawText.split('\n').filter(l => l.trim().length > 0);
     const parsed = lines.map(line => {
       const parts = line.split(',').map(p => p.trim());
+      const qty = parseFloat(parts[2]) || 0;
+      const mrp = parseFloat(parts[3]) || 0;
+      const msp = parseFloat(parts[4]) || Math.round(mrp * 0.8);
+      const unit = (parts[5]?.toLowerCase() === 'kg' ? 'kg' : 'pcs') as 'pcs' | 'kg';
+
       return {
         id: uuidv4(),
         name: parts[0] || "New Product",
         category: parts[1] || "Kitchen Ware",
-        qty: parseInt(parts[2]) || 0,
-        mrp: parseInt(parts[3]) || 0,
-        msp: parseInt(parts[4]) || Math.round((parseInt(parts[3]) || 0) * 0.8),
-        image: null,
-        variants: [{ id: uuidv4(), size: "Standard", stock: parseInt(parts[2]) || 0, mrp: parseInt(parts[3]) || 0 }]
+        qty,
+        mrp,
+        msp,
+        unit,
+        image: null
       };
     });
 
@@ -93,13 +98,13 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
           await db.variants.add({
             id: uuidv4(),
             product_id: p.id,
-            size: p.size,
-            unit: 'pcs',
-            stock: p.stock,
+            size: "Standard",
+            unit: p.unit,
+            stock: p.qty,
             dented_stock: 0,
             cost_price: p.msp,
             msp: p.msp,
-            base_price: p.base_price,
+            base_price: p.mrp,
             created_at: now,
             updated_at: now,
             is_deleted: 0
@@ -150,11 +155,11 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
                   <AlertCircle className="h-6 w-6 text-blue-600 shrink-0" />
                   <div className="text-sm">
                     <p className="font-black text-blue-900 uppercase tracking-tighter">Instructions:</p>
-                    <p className="text-blue-700 font-medium">Enter items as: <span className="font-black text-blue-900">Name, Category, Quantity, MRP, MSP</span> (one per line).</p>
+                    <p className="text-blue-700 font-medium">Enter items as: <span className="font-black text-blue-900">Name, Category, Quantity, MRP, MSP, Unit</span> (one per line). Unit is optional (default: PCS).</p>
                   </div>
                 </div>
                 <Textarea 
-                  placeholder="Example:&#10;Diamond Bucket, Buckets, 50, 250, 180&#10;Steel Plate, Plates, 100, 80, 65"
+                  placeholder="Example:&#10;Diamond Bucket, Buckets, 50, 250, 180, pcs&#10;Iron Rod, Construction, 500.5, 95, 82, kg"
                   className="flex-1 min-h-[300px] rounded-3xl border-zinc-200 bg-white p-6 font-mono text-sm shadow-inner focus-visible:ring-zinc-900"
                   value={rawText}
                   onChange={e => setRawText(e.target.value)}
@@ -185,7 +190,7 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
                         <div className="font-black text-zinc-900 uppercase italic tracking-tight truncate">{p.name}</div>
                         <div className="flex gap-2">
                           <Badge className="bg-zinc-100 text-zinc-500 rounded-lg text-[9px] font-black uppercase tracking-widest">{p.category}</Badge>
-                          <Badge className="bg-emerald-50 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest">{p.qty} PCS</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-700 rounded-lg text-[9px] font-black uppercase tracking-widest">{p.qty} {p.unit?.toUpperCase()}</Badge>
                         </div>
                         <div className="pt-2 flex justify-between items-end border-t border-zinc-50 mt-2">
                           <div>
