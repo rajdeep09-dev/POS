@@ -160,7 +160,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         {/* DESKTOP: Side-by-Side */}
         <div className="hidden md:flex flex-row h-full w-full overflow-hidden bg-zinc-950">
           <div className="w-[500px] h-full bg-white shrink-0 border-r border-zinc-200 overflow-y-auto p-10 scrollbar-hide">
-             <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} setItems={setItems} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} />
+             <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} />
           </div>
           <div className="flex-1 h-full overflow-auto p-20 flex items-start justify-center scrollbar-hide">
              <div className="origin-top transform-gpu scale-[0.8] lg:scale-[0.9] xl:scale-100 transition-all">
@@ -305,12 +305,45 @@ const PreviewContent = React.forwardRef(({ receiver, invoiceDetails, items, tota
         </tbody>
       </table>
       <div className="flex gap-8 mt-auto pt-4 text-right font-black uppercase">
-        <div className="flex-1"><table className="w-full border-2 border-black text-[9.5pt]"><thead><tr className="border-b-2 border-black bg-zinc-50"><th>HSN</th><th>Taxable</th><th>Rate</th><th>CGST</th><th>SGST</th><th>IGST</th></tr></thead><tbody><tr className="h-[10mm] font-black"><td className="border-r-2 border-black">-</td><td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN')}</td><td className="border-r-2 border-black text-center">18%</td><td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN')}</td><td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN')}</td><td className="pr-2">0.00</td></tr></tbody></table></div>
+        <div className="flex-1">
+          <table className="w-full border-2 border-black text-[9.5pt]">
+            <thead>
+              <tr className="border-b-2 border-black bg-zinc-50">
+                <th>HSN</th>
+                <th>Taxable Value</th>
+                <th>CGST (9%)</th>
+                <th>SGST (9%)</th>
+                <th>Total GST</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="h-[10mm] font-black">
+                <td className="border-r-2 border-black text-center">-</td>
+                <td className="border-r-2 border-black pr-2">{totalTaxable.toLocaleString('en-IN')}</td>
+                <td className="border-r-2 border-black pr-2">{totalCgst.toLocaleString('en-IN')}</td>
+                <td className="border-r-2 border-black pr-2">{totalSgst.toLocaleString('en-IN')}</td>
+                <td className="pr-2">{(totalCgst+totalSgst).toLocaleString('en-IN')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div className="w-[80mm] border-2 border-black p-5 space-y-3 bg-zinc-50/50">
           <div className="flex justify-between font-black text-[10.5pt]"><span>Total Taxable Value</span> <span className="font-black">₹{totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
           <div className="flex justify-between text-zinc-600 text-[10pt]"><span>Add : CGST @ 9%</span> <span className="font-bold">₹{totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
           <div className="flex justify-between text-zinc-600 text-[10pt] border-b-2 border-black pb-3"><span>Add : SGST @ 9%</span> <span className="font-bold">₹{totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-          <div className="flex justify-between pt-3 text-[18pt] text-blue-800 underline underline-offset-8"><span>GRAND TOTAL</span> <span>₹{grandTotal.toLocaleString('en-IN')}</span></div>
+          <div className="flex justify-between pt-3 text-[18pt] text-blue-800 underline underline-offset-8 italic"><span>GRAND TOTAL</span> <span>₹{grandTotal.toLocaleString('en-IN')}</span></div>
+        </div>
+      </div>
+      <div className="mt-12 border-t-2 border-black flex justify-between items-end pb-4 pt-10">
+        <div className="flex-1 pr-14">
+          <div className="font-black uppercase text-[10pt] mb-3 underline decoration-black decoration-1 underline-offset-4">Total Invoice Value (In words) :</div>
+          <div className="border-b-2 border-dotted border-zinc-500 w-full h-[12mm] italic text-zinc-800 text-[14pt] font-black pt-1 uppercase flex items-center justify-center text-center leading-none">
+            Rupees Only
+          </div>
+        </div>
+        <div className="text-center min-w-[65mm]">
+          <div className="font-black uppercase text-[10pt] mb-16 tracking-tight">For JOY RAM STEEL</div>
+          <div className="font-black uppercase text-[11pt] border-t-2 border-black pt-2 tracking-[0.2em] italic">Proprietor</div>
         </div>
       </div>
     </div>

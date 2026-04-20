@@ -34,11 +34,11 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, []);
 
-  const sales = useLiveQuery(() => db.sales.toArray(), []);
-  const saleItems = useLiveQuery(() => db.sale_items.toArray(), []);
-  const variants = useLiveQuery(() => db.variants.toArray(), []);
-  const products = useLiveQuery(() => db.products.toArray(), []);
-  const customers = useLiveQuery(() => db.customers.toArray(), []);
+  const sales = useLiveQuery(() => db.sales.where('is_deleted').equals(0).toArray(), []);
+  const saleItems = useLiveQuery(() => db.sale_items.where('is_deleted').equals(0).toArray(), []);
+  const variants = useLiveQuery(() => db.variants.where('is_deleted').equals(0).toArray(), []);
+  const products = useLiveQuery(() => db.products.where('is_deleted').equals(0).toArray(), []);
+  const customers = useLiveQuery(() => db.customers.where('is_deleted').equals(0).toArray(), []);
 
   const isDataLoading = !isTimedOut && (sales === undefined || saleItems === undefined || variants === undefined || products === undefined || customers === undefined);
 

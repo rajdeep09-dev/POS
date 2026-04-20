@@ -168,7 +168,7 @@ function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, on
   const [isUploading, setIsUploading] = useState(false);
 
   const transactions = useLiveQuery(() => 
-    db.khata_transactions.where('customer_id').equals(customer.id).reverse().sortBy('date'),
+    db.khata_transactions.where('customer_id').equals(customer.id).and(tx => tx.is_deleted === 0).reverse().sortBy('date'),
     [customer.id]
   ) || [];
 
@@ -301,9 +301,29 @@ function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, on
                               <h4 className="font-black text-zinc-900 tracking-tight text-lg">
                                 {tx.type === 'payment_received' ? 'Payment Received' : 'Credit Given'}
                               </h4>
-                              <span className={`font-black text-lg ${tx.type === 'payment_received' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {tx.type === 'payment_received' ? '+' : '-'}₹{tx.amount.toLocaleString()}
-                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className={`font-black text-lg ${tx.type === 'payment_received' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  {tx.type === 'payment_received' ? '+' : '-'}₹{tx.amount.toLocaleString()}
+                                </span>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-300 hover:text-red-500" onClick={async () => {
+                                  if(confirm("Delete this transaction record? This will adjust the customer balance.")) {
+                                    const now = new Date().toISOString();
+                                    await db.transaction('rw', db.customers, db.khata_transactions, async () => {
+                                      await db.khata_transactions.update(tx.id, { is_deleted: 1, updated_at: now });
+                                      const adj = tx.type === 'payment_received' ? tx.amount : -tx.amount;
+                                      const newBal = customer.balance + adj;
+                                      await db.customers.update(customer.id, { 
+                                        balance: newBal, 
+                                        updated_at: now,
+                                        status: newBal === 0 ? "Clear" : "Overdue" 
+                                      });
+                                    });
+                                    toast.success("Record removed & balance adjusted");
+                                  }
+                                }}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                             <div className="flex gap-2 items-center mt-1 mb-2">
                               <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest text-zinc-500 border-zinc-200 bg-white shadow-none">
