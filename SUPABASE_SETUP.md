@@ -1,21 +1,24 @@
-# Supabase Database Setup for Joy Ram Steel (Production)
+# FINAL SUPABASE PRODUCTION SETUP (A-Z Sync)
 
-To ensure reliable syncing across multiple devices, follow these steps to update your database schema.
+To ensure your POS system works perfectly with the new features (KG/PCS units, History, multi-device sync), you must run this **Final SQL Script** in your Supabase project.
 
-### 1. Execute the SQL Schema
-Copy the code block below and paste it into your **Supabase Dashboard** -> **SQL Editor** and click **Run**.
+### ⚠️ IMPORTANT: This is a "One-Shot" Clean Reset
+This script will **DROP** your existing tables and recreate them with the correct structure. If you have any test data you want to keep, back it up first.
 
-*Note: This script uses `DROP TABLE IF EXISTS` to ensure a clean start with the new `updated_at` and `is_deleted` fields. Back up any real data if necessary.*
+---
+
+### Step 1: Run the SQL
+Copy the entire block below and paste it into your **Supabase Dashboard** -> **SQL Editor** and click **Run**.
 
 ```sql
--- CLEANUP
-DROP TABLE IF EXISTS sale_items;
-DROP TABLE IF EXISTS sales;
-DROP TABLE IF EXISTS variants;
-DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS khata_transactions;
-DROP TABLE IF EXISTS customers;
-DROP TABLE IF EXISTS bills;
+-- Clean start
+DROP TABLE IF EXISTS sale_items CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS khata_transactions CASCADE;
+DROP TABLE IF EXISTS variants CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS bills CASCADE;
 
 -- 1. Products
 CREATE TABLE products (
@@ -29,7 +32,7 @@ CREATE TABLE products (
     is_deleted INTEGER DEFAULT 0
 );
 
--- 2. Variants
+-- 2. Variants (Size/Weight)
 CREATE TABLE variants (
     id TEXT PRIMARY KEY,
     product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
@@ -87,7 +90,7 @@ CREATE TABLE sale_items (
     is_deleted INTEGER DEFAULT 0
 );
 
--- 6. Bills
+-- 6. Bills (GST Vault)
 CREATE TABLE bills (
     id TEXT PRIMARY KEY,
     supplier TEXT NOT NULL,
@@ -113,14 +116,20 @@ CREATE TABLE khata_transactions (
     is_deleted INTEGER DEFAULT 0,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
+
+-- Disable Row Level Security (RLS) for all tables
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE variants DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sale_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE bills DISABLE ROW LEVEL SECURITY;
+ALTER TABLE khata_transactions DISABLE ROW LEVEL SECURITY;
 ```
 
-### 2. Disable Row Level Security (RLS)
-For easiest setup:
-1. Go to **Supabase Dashboard** -> **Table Editor**.
-2. For **each** of the 7 tables, click the **RLS** badge and select **Disable RLS**.
+### Step 2: Refresh the Web App
+1. Go back to your website.
+2. Hard-refresh your browser (Ctrl + Shift + R or long-press refresh on phone).
+3. The app will detect the new database structure and start syncing from scratch.
 
-### 3. Production Verify
-- Refresh your site.
-- Check the **Sync** indicator in the header (if present).
-- Any item updated on one device will now intelligently overwrite older versions on other devices based on the `updated_at` timestamp.
+**Now, your "A to Z" sync is fully active!** Every change on any device will now perfectly propagate to the cloud.

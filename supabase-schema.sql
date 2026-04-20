@@ -1,23 +1,34 @@
--- Supabase Schema for Joy Ram Steel POS (VyaparSyncDB)
+-- FINAL PRODUCTION SCHEMA for Joy Ram Steel (VyaparSyncDB)
 -- Run this in your Supabase SQL Editor.
--- This script uses 'IF NOT EXISTS' to safely add tables without errors.
+-- WARNING: This script DROPS existing tables to ensure every column (unit, updated_at, etc.) is perfectly set up.
+
+-- Clean start
+DROP TABLE IF EXISTS sale_items CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS khata_transactions CASCADE;
+DROP TABLE IF EXISTS variants CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS bills CASCADE;
 
 -- 1. Products Table
-CREATE TABLE IF NOT EXISTS products (
+CREATE TABLE products (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     image_url TEXT,
     gst_rate NUMERIC DEFAULT 18,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
--- 2. Variants Table
-CREATE TABLE IF NOT EXISTS variants (
+-- 2. Variants Table (Handles Sizes & Measurements)
+CREATE TABLE variants (
     id TEXT PRIMARY KEY,
     product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
     size TEXT NOT NULL,
-    unit TEXT DEFAULT 'pcs',
+    unit TEXT DEFAULT 'pcs', -- 'pcs' or 'kg'
     stock NUMERIC NOT NULL DEFAULT 0,
     dented_stock NUMERIC NOT NULL DEFAULT 0,
     cost_price NUMERIC NOT NULL DEFAULT 0,
@@ -25,23 +36,25 @@ CREATE TABLE IF NOT EXISTS variants (
     msp NUMERIC NOT NULL DEFAULT 0,
     barcode TEXT,
     image_url TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
 -- 3. Customers Table
-CREATE TABLE IF NOT EXISTS customers (
+CREATE TABLE customers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
     balance NUMERIC NOT NULL DEFAULT 0,
     last_tx TEXT NOT NULL,
-    status TEXT NOT NULL,
+    status TEXT NOT NULL, -- 'Overdue', 'Clear', etc.
     updated_at TEXT NOT NULL,
     is_deleted INTEGER DEFAULT 0
 );
 
--- 4. Sales Table
-CREATE TABLE IF NOT EXISTS sales (
+-- 4. Sales Table (Master Records)
+CREATE TABLE sales (
     id TEXT PRIMARY KEY,
     total_amount NUMERIC NOT NULL,
     discount NUMERIC NOT NULL DEFAULT 0,
@@ -51,49 +64,56 @@ CREATE TABLE IF NOT EXISTS sales (
     split_khata NUMERIC,
     customer_id TEXT REFERENCES customers(id),
     date TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
 
--- 5. Sale Items Table
-CREATE TABLE IF NOT EXISTS sale_items (
+-- 5. Sale Items Table (Detailed Breakdown)
+CREATE TABLE sale_items (
     id TEXT PRIMARY KEY,
     sale_id TEXT REFERENCES sales(id) ON DELETE CASCADE,
     variant_id TEXT REFERENCES variants(id),
     quantity NUMERIC NOT NULL,
     unit_price NUMERIC NOT NULL,
-    subtotal NUMERIC NOT NULL
+    subtotal NUMERIC NOT NULL,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
--- 6. Bills Table
-CREATE TABLE IF NOT EXISTS bills (
+-- 6. Bills Table (GST Vault)
+CREATE TABLE bills (
     id TEXT PRIMARY KEY,
     supplier TEXT NOT NULL,
     date TEXT NOT NULL,
     amount NUMERIC NOT NULL,
-    status TEXT NOT NULL,
-    image_url TEXT
+    status TEXT NOT NULL, -- 'Paid', 'Pending'
+    image_url TEXT,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0
 );
 
--- 7. Khata Transactions Table
-CREATE TABLE IF NOT EXISTS khata_transactions (
+-- 7. Khata Transactions Table (Ledger History)
+CREATE TABLE khata_transactions (
     id TEXT PRIMARY KEY,
     customer_id TEXT REFERENCES customers(id) ON DELETE CASCADE,
     amount NUMERIC NOT NULL,
-    type TEXT NOT NULL,
-    payment_method TEXT NOT NULL,
+    type TEXT NOT NULL, -- 'payment_received', 'credit_given'
+    payment_method TEXT NOT NULL, -- 'cash', 'upi', etc.
     date TEXT NOT NULL,
     proof_image_url TEXT,
     notes TEXT,
+    updated_at TEXT NOT NULL,
+    is_deleted INTEGER DEFAULT 0,
     sync_status TEXT NOT NULL DEFAULT 'synced'
 );
 
--- Enable Row Level Security (Optional but recommended)
--- By default, this script keeps RLS disabled for testing.
--- To enable later, uncomment the lines below:
--- ALTER TABLE products ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE variants ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE khata_transactions ENABLE ROW LEVEL SECURITY;
+-- Disable Row Level Security (RLS) for testing/initial use
+-- To enable RLS later, use: ALTER TABLE [name] ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE variants DISABLE ROW LEVEL SECURITY;
+ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sale_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE bills DISABLE ROW LEVEL SECURITY;
+ALTER TABLE khata_transactions DISABLE ROW LEVEL SECURITY;
