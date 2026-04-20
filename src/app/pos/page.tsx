@@ -218,56 +218,31 @@ export default function POS() {
       <GstInvoiceModal isOpen={isGstModalOpen} onClose={() => setIsGstModalOpen(false)} initialItems={gstInitialItems} />
 
       {/* Catalog Panel */}
-      <Card className="flex-1 flex flex-col min-h-0 border-none shadow-2xl bg-white/70 backdrop-blur-3xl rounded-[3rem] overflow-hidden">
-        <div className="p-6 md:p-10 bg-zinc-50/50 border-b border-zinc-100 flex flex-col md:flex-row gap-6 items-stretch md:items-center relative z-20">
-          <div className="flex-1">
+      <Card className="flex-1 flex flex-col min-h-0 border-none shadow-2xl bg-white/70 backdrop-blur-3xl rounded-[3rem] overflow-hidden border border-white/40">
+        <div className="p-8 md:p-10 bg-zinc-50/50 border-b border-zinc-100 flex flex-col md:flex-row gap-6 items-stretch md:items-center relative z-20">
+          <div className="flex-1 min-w-0">
             <ProductSearch 
               onSelect={(item) => addToCart(item)} 
               onQueryChange={setSearch}
               placeholder="Scan Barcode or Type Product Name... (⌘+K)"
             />
-            {/* Mobile Dropdown Integration Restored */}
-            <div className="md:hidden mt-4">
-               <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    <div className="w-full h-14 rounded-2xl border border-zinc-200 bg-white shadow-xl flex justify-between items-center px-6 font-black text-zinc-900 tracking-tight uppercase italic cursor-pointer">
-                      <div className="flex items-center gap-3"><Search className="h-5 w-5 text-zinc-400" /> Browse Catalog...</div>
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[calc(100vw-2rem)] max-h-[75vh] overflow-y-auto rounded-[2.5rem] p-4 shadow-[0_40px_80px_rgba(0,0,0,0.3)] border-zinc-100 bg-white/95 backdrop-blur-3xl z-[1000] flex flex-col gap-3">
-                     <div className="sticky top-0 bg-white/50 backdrop-blur-sm p-1 z-10">
-                        <Input placeholder="Type to filter..." className="h-14 rounded-2xl border-zinc-100 bg-zinc-50 font-bold" value={search} onChange={e=>setSearch(e.target.value)} />
-                     </div>
-                     {filteredCatalog.map(item => (
-                       <DropdownMenuItem key={item.id} onClick={()=>addToCart(item)} className="rounded-2xl p-4 flex items-center gap-5 hover:bg-zinc-50 transition-all cursor-pointer">
-                         <div className="h-20 w-20 rounded-2xl bg-zinc-100 shrink-0 overflow-hidden shadow-inner flex items-center justify-center">
-                           {item.image ? <img src={item.image} className="w-full h-full object-cover mix-blend-multiply" /> : <Package className="h-8 w-8 text-zinc-300" />}
-                         </div>
-                         <div className="flex-1 min-w-0 text-left">
-                           <div className="font-black text-zinc-900 truncate uppercase tracking-tight text-lg italic">{item.productName}</div>
-                           <div className="text-[10px] font-black text-zinc-400 uppercase mt-1 tracking-widest">{item.size} &bull; <span className="text-blue-600">{item.stock} {item.unit?.toUpperCase() || 'PCS'}</span></div>
-                           <div className="font-black text-zinc-900 mt-2 text-xl tracking-tighter">₹{item.base_price.toLocaleString()}</div>
-                         </div>
-                       </DropdownMenuItem>
-                     ))}
-                  </DropdownMenuContent>
-               </DropdownMenu>
-            </div>
           </div>
-          <Button size="icon" className="h-20 w-20 rounded-[2rem] bg-zinc-900 hover:bg-black text-white shrink-0 shadow-2xl shadow-zinc-900/40 active:scale-90 transition-all border-none hidden md:flex items-center justify-center">
-            <ScanLine className="h-8 w-8 text-blue-400" />
-          </Button>
           
-          {/* Mobile Scan Indicator */}
-          <div className="md:hidden flex items-center justify-between">
-             <div className="flex items-center gap-3 px-5 py-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                <Zap className="h-4 w-4 text-blue-600 fill-blue-600 animate-pulse" />
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Auto-Scanner Active</span>
-             </div>
-             <div className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest italic">
-                {filteredCatalog.length} Items in View
-             </div>
+          <div className="flex items-center gap-3">
+            <Button size="icon" className="h-20 w-20 rounded-[2rem] bg-zinc-900 hover:bg-black text-white shrink-0 shadow-2xl shadow-zinc-900/40 active:scale-90 transition-all border-none hidden md:flex items-center justify-center">
+              <ScanLine className="h-8 w-8 text-blue-400" />
+            </Button>
+            
+            {/* Mobile Scan Status (Always Visible) */}
+            <div className="md:hidden flex flex-1 items-center justify-between bg-white/80 p-4 rounded-[2rem] border border-zinc-100 shadow-inner">
+               <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
+                  <span className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Scanner Ready</span>
+               </div>
+               <div className="text-[9px] font-bold text-zinc-400 uppercase italic">
+                  {filteredCatalog.length} Items
+               </div>
+            </div>
           </div>
         </div>
 
