@@ -4,7 +4,8 @@ import { useState } from "react";
 import { 
   History as HistoryIcon, Search, Calendar, Filter, 
   ArrowRight, Download, Package, User, CreditCard,
-  IndianRupee, TrendingUp, ChevronRight, Clock
+  IndianRupee, TrendingUp, ChevronRight, Clock, FileText, 
+  Trash2, Eye
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,16 +18,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { GstInvoiceModal } from "@/components/GstInvoiceModal";
+import { EWayBillModal } from "@/components/EWayBillModal";
+import { toast } from "sonner";
 
 export default function SalesHistory() {
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+
+  const [isGstOpen, setIsGstOpen] = useState(false);
+  const [isEWayOpen, setIsEWayOpen] = useState(false);
+  const [viewData, setViewData] = useState<any>(null);
 
   const sales = useLiveQuery(() => db.sales.where('is_deleted').equals(0).reverse().sortBy('date'), []) || [];
   const saleItems = useLiveQuery(() => db.sale_items.where('is_deleted').equals(0).toArray(), []) || [];
   const variants = useLiveQuery(() => db.variants.where('is_deleted').equals(0).toArray(), []) || [];
   const products = useLiveQuery(() => db.products.where('is_deleted').equals(0).toArray(), []) || [];
   const customers = useLiveQuery(() => db.customers.where('is_deleted').equals(0).toArray(), []) || [];
+  const digitalBills = useLiveQuery(() => db.digital_bills.where('is_deleted').equals(0).reverse().sortBy('date'), []) || [];
 
   const getFilteredSales = () => {
     let filtered = sales;
@@ -58,8 +67,6 @@ export default function SalesHistory() {
   const filteredSales = getFilteredSales();
 
   const getRecentItemsSold = () => {
-    const items = [];
-    // Take last 20 sale items
     const recentSaleIds = sales.slice(0, 10).map(s => s.id);
     const recentItems = saleItems.filter(si => recentSaleIds.includes(si.sale_id));
     
@@ -79,14 +86,30 @@ export default function SalesHistory() {
 
   const recentItemsSold = getRecentItemsSold();
 
+  const handleViewBill = (bill: any) => {
+    const data = JSON.parse(bill.data);
+    setViewData(data);
+    if (bill.type === 'gst') setIsGstOpen(true);
+    else setIsEWayOpen(true);
+  };
+
+  const handleDeleteDigitalBill = async (id: string) => {
+    if (!confirm("Remove this bill from history?")) return;
+    await db.digital_bills.update(id, { is_deleted: 1, updated_at: new Date().toISOString() });
+    toast.success("Bill removed from archive");
+  };
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-20">
+    <div className="space-y-8 max-w-7xl mx-auto pb-32">
+      <GstInvoiceModal isOpen={isGstOpen} onClose={()=>setIsGstOpen(false)} viewOnlyData={viewData} />
+      <EWayBillModal isOpen={isEWayOpen} onClose={()=>setIsEWayOpen(false)} viewOnlyData={viewData} />
+
       <div className="flex flex-col sm:flex-row gap-6 justify-between sm:items-end">
         <div>
           <h2 className="text-4xl font-black tracking-tight text-zinc-900 flex items-center gap-3">
-             <HistoryIcon className="h-10 w-10 text-blue-600" /> Sales Archive
+             <HistoryIcon className="h-10 w-10 text-blue-600" /> Archives
           </h2>
-          <p className="text-zinc-500 mt-1 text-lg font-medium leading-tight">View past transactions, filter by date, and track performance.</p>
+          <p className="text-zinc-500 mt-1 text-lg font-medium leading-tight">Past sales and generated bills.</p>
         </div>
         <div className="flex gap-2 p-1 bg-zinc-100 rounded-2xl shrink-0 h-14 items-center px-2 shadow-inner">
           <Button variant="ghost" onClick={() => setDateFilter("all")} className={cn("rounded-xl h-10 px-4 font-black text-[10px] uppercase tracking-widest", dateFilter === 'all' ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400")}>All Time</Button>
@@ -98,10 +121,13 @@ export default function SalesHistory() {
 
       <Tabs defaultValue="sales" className="w-full">
         <TabsList className="bg-transparent border-b border-zinc-100 w-full justify-start rounded-none h-auto p-0 gap-8">
-          <TabsTrigger value="sales" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none px-0 pb-4 font-black text-xs uppercase tracking-widest text-zinc-400 data-[state=active]:text-zinc-900">
-            All Transactions
+          <TabsTrigger value="sales" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none px-0 pb-4 font-black text-[10px] uppercase tracking-widest text-zinc-400 data-[state=active]:text-zinc-900">
+            Sales Transactions
           </TabsTrigger>
-          <TabsTrigger value="items" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none px-0 pb-4 font-black text-xs uppercase tracking-widest text-zinc-400 data-[state=active]:text-zinc-900">
+          <TabsTrigger value="bills" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none px-0 pb-4 font-black text-[10px] uppercase tracking-widest text-zinc-400 data-[state=active]:text-zinc-900">
+            Digital GST/eWay Bills
+          </TabsTrigger>
+          <TabsTrigger value="items" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent rounded-none px-0 pb-4 font-black text-[10px] uppercase tracking-widest text-zinc-400 data-[state=active]:text-zinc-900">
             Recently Sold Items
           </TabsTrigger>
         </TabsList>
@@ -110,7 +136,7 @@ export default function SalesHistory() {
           <div className="relative">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
             <Input 
-              placeholder="Search by Bill ID or Customer name..." 
+              placeholder="Search sales..." 
               className="pl-14 h-16 text-lg bg-white border-zinc-100 shadow-2xl rounded-2xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -122,9 +148,9 @@ export default function SalesHistory() {
               <Table>
                 <TableHeader className="bg-zinc-50/50 border-none">
                   <TableRow className="border-none h-16">
-                    <TableHead className="pl-8 font-black uppercase text-[10px] tracking-widest text-zinc-400">Bill ID</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-zinc-400">Date & Time</TableHead>
-                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-zinc-400">Customer</TableHead>
+                    <TableHead className="pl-8 font-black uppercase text-[10px] tracking-widest text-zinc-400 text-left">Bill ID</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-zinc-400 text-left">Date & Time</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] tracking-widest text-zinc-400 text-left">Customer</TableHead>
                     <TableHead className="text-center font-black uppercase text-[10px] tracking-widest text-zinc-400">Method</TableHead>
                     <TableHead className="text-right pr-8 font-black uppercase text-[10px] tracking-widest text-zinc-400">Amount</TableHead>
                   </TableRow>
@@ -133,50 +159,62 @@ export default function SalesHistory() {
                   {filteredSales.map((sale) => {
                     const customer = customers.find(c => c.id === sale.customer_id);
                     return (
-                      <TableRow key={sale.id} className="hover:bg-zinc-50 border-none transition-all cursor-pointer group">
+                      <TableRow key={sale.id} className="hover:bg-zinc-50 border-none transition-all cursor-pointer group text-left">
                         <TableCell className="pl-8 py-6 font-black text-zinc-900 uppercase italic tracking-tighter">#{sale.id.slice(0,8)}</TableCell>
                         <TableCell className="py-6">
-                           <div className="font-bold text-zinc-900 text-sm">
-                             {new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                           </div>
-                           <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">
-                             {new Date(sale.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                           </div>
+                           <div className="font-bold text-zinc-900 text-sm">{new Date(sale.date).toLocaleDateString()}</div>
+                           <div className="text-[10px] font-black text-zinc-400 uppercase mt-1">{new Date(sale.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                         </TableCell>
-                        <TableCell className="py-6">
-                           <div className="flex items-center gap-2">
-                             <User className="h-4 w-4 text-zinc-300" />
-                             <span className="font-black text-zinc-900 uppercase text-sm tracking-tight">{customer?.name || "Walk-in"}</span>
-                           </div>
-                        </TableCell>
+                        <TableCell className="py-6 font-black text-zinc-900 uppercase text-sm">{customer?.name || "Walk-in"}</TableCell>
                         <TableCell className="py-6 text-center">
-                          <Badge className={cn(
-                            "font-black px-3 py-1 text-[9px] uppercase tracking-widest rounded-lg shadow-none",
-                            sale.payment_method === 'cash' ? "bg-emerald-50 text-emerald-600" : 
-                            sale.payment_method === 'upi' ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"
-                          )}>
-                            {sale.payment_method}
-                          </Badge>
+                          <Badge className="bg-zinc-900 text-white font-black text-[9px] uppercase">{sale.payment_method}</Badge>
                         </TableCell>
-                        <TableCell className="text-right pr-8 py-6">
-                           <span className="font-black text-zinc-900 text-2xl tracking-tighter">₹{sale.total_amount.toLocaleString()}</span>
-                        </TableCell>
+                        <TableCell className="text-right pr-8 py-6 font-black text-zinc-900 text-2xl tracking-tighter">₹{sale.total_amount.toLocaleString()}</TableCell>
                       </TableRow>
                     );
                   })}
-                  {filteredSales.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="py-20 text-center text-zinc-400 font-black uppercase tracking-widest text-xs">No records found for this period</TableCell></TableRow>
-                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
+        <TabsContent value="bills" className="pt-8 space-y-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {digitalBills.filter(b => b.customer_name.toLowerCase().includes(search.toLowerCase()) || b.bill_no.toLowerCase().includes(search.toLowerCase())).map(bill => (
+                <Card key={bill.id} className="border-none shadow-xl bg-white/70 backdrop-blur-3xl rounded-[2rem] overflow-hidden group hover:shadow-2xl transition-all border border-white">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-6">
+                       <Badge className={cn("font-black px-3 py-1 rounded-lg text-[9px] uppercase tracking-widest", bill.type === 'gst' ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700")}>
+                         {bill.type === 'gst' ? "GST Invoice" : "eWay Bill"}
+                       </Badge>
+                       <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{new Date(bill.date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="space-y-1 mb-6 text-left">
+                       <h4 className="font-black text-zinc-900 text-xl tracking-tight uppercase truncate">{bill.customer_name}</h4>
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Bill No: {bill.bill_no || 'N/A'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <Button onClick={() => handleViewBill(bill)} className="flex-1 rounded-xl h-12 bg-zinc-900 hover:bg-black text-white font-black text-[10px] uppercase tracking-widest gap-2 shadow-xl">
+                         <Eye className="h-4 w-4" /> View & Save
+                       </Button>
+                       <Button onClick={() => handleDeleteDigitalBill(bill.id)} variant="ghost" size="icon" className="h-12 w-12 rounded-xl text-zinc-300 hover:text-red-500 hover:bg-red-50">
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {digitalBills.length === 0 && (
+                <div className="col-span-full py-20 text-center text-zinc-400 font-black uppercase tracking-widest text-xs italic">No digital bills generated yet</div>
+              )}
+           </div>
+        </TabsContent>
+
         <TabsContent value="items" className="pt-8">
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentItemsSold.map((item, idx) => (
-                <Card key={idx} className="border-none shadow-xl bg-white/70 backdrop-blur-3xl rounded-3xl overflow-hidden hover:shadow-2xl transition-all">
+                <Card key={idx} className="border-none shadow-xl bg-white/70 backdrop-blur-3xl rounded-3xl overflow-hidden text-left">
                   <CardContent className="p-6 flex items-center gap-4">
                     <div className="h-16 w-16 rounded-2xl bg-zinc-100 flex items-center justify-center shrink-0 shadow-inner">
                       <Package className="h-8 w-8 text-zinc-300" />
@@ -195,9 +233,6 @@ export default function SalesHistory() {
                   </CardContent>
                 </Card>
               ))}
-              {recentItemsSold.length === 0 && (
-                <div className="col-span-full py-20 text-center text-zinc-400 font-black uppercase tracking-widest text-xs italic">No items sold recently</div>
-              )}
            </div>
         </TabsContent>
       </Tabs>

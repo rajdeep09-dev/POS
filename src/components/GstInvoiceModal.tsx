@@ -15,7 +15,8 @@ import {
   Trash2,
   X,
   Layout,
-  Settings2
+  Settings2,
+  Save
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -32,15 +33,17 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { v4 as uuidv4 } from "uuid";
 
 interface GstInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialItems?: any[];
   initialReceiver?: any;
+  viewOnlyData?: any; // For loading from history
 }
 
-export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver }: GstInvoiceModalProps) {
+export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver, viewOnlyData }: GstInvoiceModalProps) {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState([{ desc: "", hsn: "7323", qty: "1", unit: "pcs", finalRate: "", gstRate: "18", taxableValue: 0, cgst: 0, sgst: 0, total: 0 }]);
   const [receiver, setReceiver] = useState({ name: "", address: "", gstin: "" });
@@ -56,30 +59,36 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
     summaryHsn: "-"
   });
 
-  // Pre-fill from POS if provided
+  // Pre-fill from POS or History
   React.useEffect(() => {
-    if (isOpen && initialItems && initialItems.length > 0) {
-      const formatted = initialItems.map(item => {
-        const rate = item.base_price;
-        const taxable = rate / 1.18;
-        return {
-          desc: `${item.productName} - ${item.size}`.toUpperCase(),
-          hsn: "7323",
-          qty: item.qty.toString(),
-          unit: item.unit || 'pcs',
-          finalRate: rate.toString(),
-          gstRate: "18",
-          taxableValue: parseFloat((taxable * item.qty).toFixed(2)),
-          cgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
-          sgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
-          total: rate * item.qty
-        };
-      });
-      setItems(formatted);
+    if (isOpen) {
+      if (viewOnlyData) {
+        setItems(viewOnlyData.items);
+        setReceiver(viewOnlyData.receiver);
+        setInvoiceDetails(viewOnlyData.invoiceDetails);
+        setShopDetails(viewOnlyData.shopDetails);
+      } else if (initialItems && initialItems.length > 0) {
+        const formatted = initialItems.map(item => {
+          const rate = item.base_price;
+          const taxable = rate / 1.18;
+          return {
+            desc: `${item.productName} - ${item.size}`.toUpperCase(),
+            hsn: "7323",
+            qty: item.qty.toString(),
+            unit: item.unit || 'pcs',
+            finalRate: rate.toString(),
+            gstRate: "18",
+            taxableValue: parseFloat((taxable * item.qty).toFixed(2)),
+            cgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
+            sgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
+            total: rate * item.qty
+          };
+        });
+        setItems(formatted);
+      }
     }
-  }, [isOpen, initialItems]);
+  }, [isOpen, initialItems, viewOnlyData]);
 
-  // Catalog for dropdown
   const catalog = useLiveQuery(async () => {
     const products = await db.products.where('is_deleted').equals(0).toArray();
     const variants = await db.variants.where('is_deleted').equals(0).toArray();
@@ -131,6 +140,30 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
   const totalSgst = items.reduce((a, b) => a + b.sgst, 0);
   const grandTotal = items.reduce((a, b) => a + b.total, 0);
 
+  const saveToHistory = async () => {
+    if (!receiver.name || items.length === 0) {
+      toast.error("Add customer name and items to save");
+      return;
+    }
+    try {
+      const now = new Date().toISOString();
+      await db.digital_bills.add({
+        id: uuidv4(),
+        type: 'gst',
+        bill_no: invoiceDetails.no,
+        date: invoiceDetails.date,
+        customer_name: receiver.name,
+        data: JSON.stringify({ items, receiver, invoiceDetails, shopDetails }),
+        updated_at: now,
+        is_deleted: 0,
+        sync_status: 'pending'
+      });
+      toast.success("Saved to History");
+    } catch {
+      toast.error("Failed to save");
+    }
+  };
+
   const exportDoc = async (type: 'pdf' | 'img') => {
     if (!invoiceRef.current) return;
     toast.info("Generating...");
@@ -142,6 +175,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
         pdf.addImage(url, 'JPEG', 0, 0, 210, 297); pdf.save(`JoyRam-GST.pdf`);
       }
+      await saveToHistory();
       toast.success("Success");
     } catch { toast.error("Failed"); }
   };
@@ -158,7 +192,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
               <TabsTrigger value="preview" className="rounded-xl font-black text-[10px] uppercase tracking-widest">2. View</TabsTrigger>
             </TabsList>
             <TabsContent value="edit" className="flex-1 overflow-y-auto bg-white m-0 p-6 pb-32">
-              <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} setItems={setItems} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} shopDetails={shopDetails} setShopDetails={setShopDetails} />
+              <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} setItems={setItems} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} shopDetails={shopDetails} setShopDetails={setShopDetails} saveToHistory={saveToHistory} />
             </TabsContent>
             <TabsContent value="preview" className="flex-1 overflow-auto bg-zinc-950 flex items-start justify-center p-4 m-0 scrollbar-hide">
               <div className="origin-top transform-gpu scale-[0.42] transition-all">
@@ -171,7 +205,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         {/* DESKTOP: Side-by-Side */}
         <div className="hidden md:flex flex-row h-full w-full overflow-hidden bg-zinc-950">
           <div className="w-[500px] h-full bg-white shrink-0 border-r border-zinc-200 overflow-y-auto p-10 scrollbar-hide">
-             <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} setItems={setItems} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} shopDetails={shopDetails} setShopDetails={setShopDetails} />
+             <FormContent receiver={receiver} setReceiver={setReceiver} invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails} items={items} setItems={setItems} addItem={addItem} updateItem={updateItem} removeItem={(i:number)=>setItems(items.filter((_,idx)=>idx!==i))} catalog={catalog} onClose={onClose} exportDoc={exportDoc} shopDetails={shopDetails} setShopDetails={setShopDetails} saveToHistory={saveToHistory} />
           </div>
           <div className="flex-1 h-full overflow-auto p-20 flex items-start justify-center scrollbar-hide">
              <div className="origin-top transform-gpu scale-[0.8] lg:scale-[0.9] xl:scale-100 transition-all">
@@ -185,7 +219,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
   );
 }
 
-function FormContent({ receiver, setReceiver, invoiceDetails, setInvoiceDetails, items, setItems, addItem, updateItem, removeItem, catalog, onClose, exportDoc, shopDetails, setShopDetails }: any) {
+function FormContent({ receiver, setReceiver, invoiceDetails, setInvoiceDetails, items, setItems, addItem, updateItem, removeItem, catalog, onClose, exportDoc, shopDetails, setShopDetails, saveToHistory }: any) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
@@ -195,7 +229,10 @@ function FormContent({ receiver, setReceiver, invoiceDetails, setInvoiceDetails,
           <div className="h-12 w-12 rounded-2xl bg-zinc-900 text-white flex items-center justify-center font-black italic shadow-xl">G</div>
           <div><h2 className="text-3xl font-black italic tracking-tighter uppercase leading-none">GST GEN</h2><p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Professional Biller</p></div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
+        <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={saveToHistory} className="rounded-full h-12 w-12 text-zinc-400 hover:text-emerald-600"><Save className="h-6 w-6" /></Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
+        </div>
       </div>
 
       <div className="space-y-6 text-left">

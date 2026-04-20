@@ -18,7 +18,8 @@ import {
   Layout,
   Trash2,
   MapPin,
-  Settings2
+  Settings2,
+  Save
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -35,13 +36,15 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import { v4 as uuidv4 } from "uuid";
 
 interface EWayBillModalProps {
   isOpen: boolean;
   onClose: () => void;
+  viewOnlyData?: any;
 }
 
-export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
+export function EWayBillModal({ isOpen, onClose, viewOnlyData }: EWayBillModalProps) {
   const ewayRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<any[]>([
     { itemName: "STEEL KITCHEN WARE ITEMS", itemHsn: "7323", itemQty: "1.00", unit: "pcs", itemAmount: "10,000.00" }
@@ -64,6 +67,13 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
     txnType: "Regular",
     origin: "AGARTALA, TRIPURA"
   });
+
+  React.useEffect(() => {
+    if (isOpen && viewOnlyData) {
+      setItems(viewOnlyData.items);
+      setDetails(viewOnlyData.details);
+    }
+  }, [isOpen, viewOnlyData]);
 
   const catalog = useLiveQuery(async () => {
     const products = await db.products.where('is_deleted').equals(0).toArray();
@@ -94,6 +104,25 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
     setItems(newItems);
   };
 
+  const saveToHistory = async () => {
+    if (items.length === 0) return;
+    try {
+      const now = new Date().toISOString();
+      await db.digital_bills.add({
+        id: uuidv4(),
+        type: 'eway',
+        bill_no: details.no,
+        date: details.date,
+        customer_name: details.toName || "Walk-in",
+        data: JSON.stringify({ items, details }),
+        updated_at: now,
+        is_deleted: 0,
+        sync_status: 'pending'
+      });
+      toast.success("Saved to History");
+    } catch { toast.error("Failed to save"); }
+  };
+
   const exportDoc = async (type: 'pdf' | 'img') => {
     if (!ewayRef.current) return;
     toast.info("Generating...");
@@ -105,6 +134,7 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
         const pdf = new jsPDF('p', 'mm', 'a4');
         pdf.addImage(url, 'PNG', 0, 0, 210, 297); pdf.save(`EWayBill.pdf`);
       }
+      await saveToHistory();
       toast.success("Success");
     } catch { toast.error("Error"); }
   };
@@ -116,12 +146,14 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
         {/* MOBILE VIEW */}
         <div className="md:hidden flex flex-col h-full w-full overflow-hidden">
           <Tabs defaultValue="edit" className="flex-1 flex flex-col h-full overflow-hidden">
-            <TabsList className="grid grid-cols-2 h-16 bg-zinc-900 border-b border-white/10 p-2 shrink-0">
-              <TabsTrigger value="edit" className="rounded-xl font-black text-[10px] uppercase tracking-widest">1. Data</TabsTrigger>
-              <TabsTrigger value="preview" className="rounded-xl font-black text-[10px] uppercase tracking-widest">2. View</TabsTrigger>
-            </TabsList>
+            <div className="bg-zinc-900 border-b border-white/10 p-3 shrink-0">
+              <TabsList className="w-full bg-zinc-800/50 rounded-2xl h-14 p-1">
+                <TabsTrigger value="edit" className="rounded-xl font-black text-[10px] uppercase">1. Data</TabsTrigger>
+                <TabsTrigger value="preview" className="rounded-xl font-black text-[10px] uppercase">2. View</TabsTrigger>
+              </TabsList>
+            </div>
             <TabsContent value="edit" className="flex-1 overflow-y-auto bg-white m-0 p-6 pb-24">
-              <EWayForm details={details} setDetails={setDetails} items={items} setItems={setItems} handleProductSelect={handleProductSelect} removeItem={removeItem} updateItem={updateItem} catalog={catalog} onClose={onClose} exportDoc={exportDoc} />
+              <EWayForm details={details} setDetails={setDetails} items={items} setItems={setItems} handleProductSelect={handleProductSelect} removeItem={removeItem} updateItem={updateItem} catalog={catalog} onClose={onClose} exportDoc={exportDoc} saveToHistory={saveToHistory} />
             </TabsContent>
             <TabsContent value="preview" className="flex-1 overflow-auto bg-zinc-950 flex items-start justify-center p-4 m-0 scrollbar-hide">
               <div className="origin-top transform-gpu scale-[0.38] transition-all">
@@ -134,9 +166,9 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
         {/* DESKTOP VIEW */}
         <div className="hidden md:flex flex-row h-full w-full overflow-hidden bg-zinc-950">
           <div className="w-[480px] h-full bg-white shrink-0 border-r border-zinc-100 overflow-y-auto p-10 scrollbar-hide">
-             <EWayForm details={details} setDetails={setDetails} items={items} setItems={setItems} handleProductSelect={handleProductSelect} removeItem={removeItem} updateItem={updateItem} catalog={catalog} onClose={onClose} exportDoc={exportDoc} />
+             <EWayForm details={details} setDetails={setDetails} items={items} setItems={setItems} handleProductSelect={handleProductSelect} removeItem={removeItem} updateItem={updateItem} catalog={catalog} onClose={onClose} exportDoc={exportDoc} saveToHistory={saveToHistory} />
           </div>
-          <div className="flex-1 h-full overflow-auto bg-zinc-900 p-12 lg:p-20 flex items-start justify-center scrollbar-hide">
+          <div className="flex-1 h-full overflow-auto p-20 flex items-start justify-center scrollbar-hide">
              <div className="origin-top transform-gpu scale-[0.7] lg:scale-[0.85] xl:scale-100 transition-all">
                 <EWayPreview ref={ewayRef} details={details} items={items} />
              </div>
@@ -148,7 +180,7 @@ export function EWayBillModal({ isOpen, onClose }: EWayBillModalProps) {
   );
 }
 
-function EWayForm({ details, setDetails, items, setItems, handleProductSelect, removeItem, updateItem, catalog, onClose, exportDoc }: any) {
+function EWayForm({ details, setDetails, items, setItems, handleProductSelect, removeItem, updateItem, catalog, onClose, exportDoc, saveToHistory }: any) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
@@ -158,7 +190,10 @@ function EWayForm({ details, setDetails, items, setItems, handleProductSelect, r
           <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black italic shadow-xl shadow-blue-600/20">E</div>
           <div><h2 className="text-2xl font-black italic tracking-tighter uppercase leading-none">eWay Bill</h2><p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Logistics Engine</p></div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
+        <div className="flex gap-2">
+            <Button variant="ghost" size="icon" onClick={saveToHistory} className="rounded-full h-12 w-12 text-zinc-400 hover:text-emerald-600"><Save className="h-6 w-6" /></Button>
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-12 w-12"><X className="h-6 w-6 text-zinc-400" /></Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -298,13 +333,13 @@ const EWayPreview = React.forwardRef(({ details, items }: any, ref: any) => {
         <section>
           <div className="font-black border-b-2 border-black pb-1 mb-4 text-[12pt] uppercase bg-zinc-100 px-2 py-1">2. Address Details</div>
           <div className="grid grid-cols-2 gap-12 px-2">
-            <div className="space-y-1 relative border-2 border-dashed border-zinc-100 p-4 rounded-2xl bg-zinc-50/50">
+            <div className="space-y-1 relative border-2 border-dashed border-zinc-100 p-4 rounded-2xl bg-zinc-50/50 text-left">
               <div className="font-black text-[10pt] uppercase underline text-blue-600 mb-2">From (Sender)</div>
               <div className="font-black text-[14pt] text-zinc-900 tracking-wider leading-none uppercase">{details.fromName}</div>
               <div className="text-[10pt] font-bold text-zinc-400 mt-2 leading-tight uppercase">{details.fromAddress}</div>
               <div className="mt-2 pt-2 border-t border-zinc-200 font-black text-[10pt] tracking-tighter text-blue-800 italic">GSTIN: {details.fromGstin}</div>
             </div>
-            <div className="space-y-1 relative border-2 border-dashed border-zinc-100 p-4 rounded-2xl bg-zinc-50/50">
+            <div className="space-y-1 relative border-2 border-dashed border-zinc-100 p-4 rounded-2xl bg-zinc-50/50 text-left">
               <div className="font-black text-[10pt] uppercase underline text-emerald-600 mb-2">To (Final Destination)</div>
               <div className="font-black text-[14pt] text-zinc-900 tracking-wider leading-none uppercase">{details.toName || "WALK-IN"}</div>
               <div className="text-[10pt] font-bold text-zinc-400 mt-2 leading-tight uppercase">{details.toAddress || "URP"}</div>

@@ -30,7 +30,8 @@ export function SyncEngine() {
           { name: 'khata_transactions', db: db.khata_transactions },
           { name: 'sales', db: db.sales },
           { name: 'sale_items', db: db.sale_items },
-          { name: 'bills', db: db.bills }
+          { name: 'bills', db: db.bills },
+          { name: 'digital_bills', db: db.digital_bills }
         ];
 
         for (const table of tables) {
