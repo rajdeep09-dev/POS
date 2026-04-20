@@ -219,24 +219,24 @@ export default function SalesHistory() {
                           </TableCell>
                           <TableCell className="text-right py-6 font-black text-zinc-900 text-2xl tracking-tighter italic">₹{sale.total_amount.toLocaleString()}</TableCell>
                           <TableCell className="text-right pr-10 py-6">
-                             <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                             <div className="flex gap-3 justify-end transition-all">
                                 <Button 
                                   variant="outline" 
                                   size="icon" 
                                   disabled={sale.is_returned === 1}
-                                  className="h-10 w-10 rounded-xl border-zinc-100 hover:bg-zinc-900 hover:text-white"
+                                  className="h-11 w-11 rounded-2xl border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-900 hover:text-white shadow-sm"
                                   onClick={() => { setSelectedSale(sale); setIsEditModalOpen(true); }}
                                 >
-                                  <Edit2 className="h-4 w-4" />
+                                  <Edit2 className="h-5 w-5" />
                                 </Button>
                                 <Button 
                                   variant="outline" 
                                   size="icon" 
                                   disabled={sale.is_returned === 1}
-                                  className="h-10 w-10 rounded-xl border-zinc-100 hover:bg-red-600 hover:text-white"
+                                  className="h-11 w-11 rounded-2xl border-zinc-200 bg-white text-zinc-600 hover:bg-red-600 hover:text-white shadow-sm"
                                   onClick={() => handleReturnSale(sale)}
                                 >
-                                  <RotateCcw className="h-4 w-4" />
+                                  <RotateCcw className="h-5 w-5" />
                                 </Button>
                              </div>
                           </TableCell>
