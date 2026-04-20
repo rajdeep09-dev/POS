@@ -1,9 +1,17 @@
 "use client";
 
-import { Bell, WifiOff, Cloud, Loader2, Clock } from "lucide-react";
+import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { db } from "@/lib/db";
+import { toast } from "sonner";
 
 export function Header() {
   const [isOnline, setIsOnline] = useState(true);
@@ -34,6 +42,18 @@ export function Header() {
     };
   }, []);
 
+  const handleClearCache = async () => {
+    if (confirm("Clear local cache? This will force a fresh sync from the cloud.")) {
+        try {
+            await db.delete();
+            toast.success("Cache cleared. Reloading...");
+            setTimeout(() => window.location.reload(), 1500);
+        } catch {
+            toast.error("Failed to clear cache");
+        }
+    }
+  };
+
   let title = "Command Center";
   if (pathname === "/pos") title = "POS Checkout";
   else if (pathname === "/inventory") title = "Master Catalog";
@@ -42,7 +62,7 @@ export function Header() {
   else if (pathname === "/history") title = "Sales Archives";
 
   return (
-    <header className="sticky top-0 z-40 flex h-24 items-center justify-between border-b border-zinc-100 bg-white/80 px-6 md:px-10 backdrop-blur-3xl shadow-sm">
+    <header className="sticky top-0 z-40 flex h-24 items-center justify-between border-b border-zinc-100 bg-white/80 px-6 md:px-10 backdrop-blur-3xl shadow-sm text-left">
       <div className="flex items-center gap-6">
         <div className="flex flex-col">
             <span className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tighter uppercase italic leading-none">
@@ -56,18 +76,27 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
-        <div className="flex flex-col items-end gap-1.5 mr-2">
-            {isOnline && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100/50 shadow-sm">
-                <Cloud className="h-3 w-3" /> Synced
-            </div>
-            )}
-            {lastSync && (
-                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter">
-                    Last: {new Date(lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-            )}
-        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger>
+                <div className="flex flex-col items-end gap-1.5 mr-2 cursor-pointer group">
+                    {isOnline && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-100/50 shadow-sm group-hover:bg-emerald-100 transition-colors">
+                        <Cloud className="h-3 w-3" /> Synced <ChevronDown className="h-2 w-2 ml-1" />
+                    </div>
+                    )}
+                    {lastSync && (
+                        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter">
+                            Last: {new Date(lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    )}
+                </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-zinc-100 bg-white/95 backdrop-blur-3xl">
+                <DropdownMenuItem onClick={handleClearCache} className="rounded-xl h-12 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50">
+                    <RefreshCcw className="h-4 w-4" /> Clear Cache
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
 
         {!isOnline && (
           <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-100">

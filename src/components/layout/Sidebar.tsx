@@ -20,18 +20,6 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
 
-  const handleResetSystem = async () => {
-    if (confirm("DANGER: This will delete ALL local data and force a fresh sync. Proceed?")) {
-        try {
-            await db.delete();
-            toast.success("Database Reset. Reloading...");
-            setTimeout(() => window.location.reload(), 1500);
-        } catch {
-            toast.error("Reset failed");
-        }
-    }
-  };
-
   return (
     <div className="flex h-full w-64 flex-col border-r bg-white/50 backdrop-blur-xl">
       <div className="flex h-16 items-center px-6 border-b">
@@ -66,9 +54,6 @@ export function Sidebar() {
       </nav>
       
       <div className="p-4 border-t space-y-2">
-        <Button variant="ghost" onClick={handleResetSystem} className="w-full justify-start text-xs font-black text-red-400 hover:text-red-600 hover:bg-red-50 gap-3 px-3 uppercase tracking-widest">
-            <RefreshCcw className="h-4 w-4" /> Reset System
-        </Button>
         <div className="text-xs text-center text-slate-400 font-medium flex flex-col items-center gap-1 pt-2">
             <span>Vyapar Sync v1.2</span>
         </div>
