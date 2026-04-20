@@ -21,6 +21,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Joy Ram Steel POS",
   description: "Mobile-first POS and Inventory management system for Joy Ram Steel.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "JRS POS",
+  },
   icons: {
     icon: "/joyramlogo.png",
     apple: "/joyramlogo.png",

@@ -110,6 +110,14 @@ export interface DigitalBill {
   sync_status: 'pending' | 'synced';
 }
 
+export interface ParkedCart {
+  id: string;
+  customer_name?: string;
+  items: any[];
+  total: number;
+  created_at: string;
+}
+
 const db = new Dexie('VyaparSyncDB') as Dexie & {
   products: EntityTable<Product, 'id'>;
   variants: EntityTable<Variant, 'id'>;
@@ -119,10 +127,11 @@ const db = new Dexie('VyaparSyncDB') as Dexie & {
   khata_transactions: EntityTable<KhataTransaction, 'id'>;
   bills: EntityTable<Bill, 'id'>;
   digital_bills: EntityTable<DigitalBill, 'id'>;
+  parked_carts: EntityTable<ParkedCart, 'id'>;
 };
 
-// V9: Added sync_status to ALL tables to fix the "Error" state in SyncEngine
-db.version(9).stores({
+// V10: Added parked_carts for Multi-Cart support
+db.version(10).stores({
   products: 'id, name, category, updated_at, is_deleted, sync_status', 
   variants: 'id, product_id, size, barcode, updated_at, is_deleted, unit, sync_status', 
   sales: 'id, date, sync_status, updated_at, is_deleted',
@@ -130,7 +139,8 @@ db.version(9).stores({
   customers: 'id, name, phone, status, updated_at, is_deleted, sync_status',
   khata_transactions: 'id, customer_id, date, sync_status, updated_at, is_deleted',
   bills: 'id, supplier, status, updated_at, is_deleted, sync_status',
-  digital_bills: 'id, type, bill_no, customer_name, date, sync_status, updated_at, is_deleted'
+  digital_bills: 'id, type, bill_no, customer_name, date, sync_status, updated_at, is_deleted',
+  parked_carts: 'id, created_at'
 });
 
 db.on('versionchange', function() {

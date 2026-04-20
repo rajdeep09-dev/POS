@@ -7,7 +7,7 @@ import {
   ScanLine, Trash2, Minus, Plus, Tag, CreditCard,
   IndianRupee, QrCode, Users, Search, Percent, AlertTriangle,
   Package, ShoppingCart, ArrowRight, CheckCircle2, ChevronRight,
-  Zap, Command, Info
+  Zap, Command, Info, ParkingMeter, PlayCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +51,33 @@ export default function POS() {
 
   const [isGstModalOpen, setIsGstModalOpen] = useState(false);
   const [gstInitialItems, setGstInitialItems] = useState<any[]>([]);
+
+  // Park & Resume state
+  const parkedCarts = useLiveQuery(() => db.parked_carts.toArray());
+
+  const handleParkCart = async () => {
+    if (cart.length === 0) return;
+    const customerName = prompt("Enter customer name or reference:") || "Guest";
+    await db.parked_carts.add({
+      id: uuidv4(),
+      customer_name: customerName,
+      items: cart,
+      total: finalTotal,
+      created_at: new Date().toISOString()
+    });
+    setCart([]);
+    setDiscount(0);
+    toast.success("Cart Parked");
+  };
+
+  const handleResumeCart = async (parked: any) => {
+    if (cart.length > 0) {
+      if (!confirm("Your current cart will be replaced. Continue?")) return;
+    }
+    setCart(parked.items);
+    await db.parked_carts.delete(parked.id);
+    toast.success(`Resumed: ${parked.customer_name}`);
+  };
 
   const catalogData = useLiveQuery(async () => {
     const prods = await db.products.where('is_deleted').equals(0).toArray();
@@ -264,8 +291,40 @@ export default function POS() {
             <h3 className="font-black text-2xl text-zinc-900 flex items-center gap-4 tracking-tighter italic">
               <div className="p-3 bg-zinc-900 rounded-2xl text-white shadow-xl shadow-zinc-900/20"><ShoppingCart className="h-6 w-6" /></div> MY CART
             </h3>
-            <Badge className="bg-zinc-900 text-white font-black px-5 py-2.5 text-xs rounded-2xl shadow-2xl border-none">{cart.length} ITEMS</Badge>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleParkCart}
+                disabled={cart.length === 0}
+                className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 hover:bg-blue-500 hover:text-white transition-all"
+              >
+                <ParkingMeter className="h-5 w-5" />
+              </Button>
+              <Badge className="bg-zinc-900 text-white font-black px-5 py-2.5 text-xs rounded-2xl shadow-2xl border-none">{cart.length} ITEMS</Badge>
+            </div>
           </div>
+          
+          {/* Parked Carts List */}
+          {parkedCarts && parkedCarts.length > 0 && (
+            <div className="px-8 py-4 bg-blue-50/50 border-b border-blue-100 flex gap-4 overflow-x-auto scrollbar-hide shrink-0">
+              {parkedCarts.map(p => (
+                <button 
+                  key={p.id} 
+                  onClick={() => handleResumeCart(p)}
+                  className="shrink-0 flex items-center gap-3 bg-white border border-blue-200 px-4 py-2.5 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 group"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-blue-500 flex items-center justify-center text-white">
+                    <PlayCircle className="h-4 w-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] font-black uppercase text-zinc-900 tracking-tight leading-none truncate w-24 italic">{p.customer_name}</div>
+                    <div className="text-[8px] font-bold text-blue-600 uppercase mt-1">₹{p.total.toLocaleString()} &bull; {p.items.length} items</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           
           <ScrollArea className="flex-1 p-8">
             <AnimatePresence mode="popLayout">

@@ -1,0 +1,22 @@
+{
+  "name": "Joy Ram Steel POS",
+  "short_name": "JRS POS",
+  "description": "Premium Offline-First Steel Inventory & POS System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/joyramlogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/joyramlogo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

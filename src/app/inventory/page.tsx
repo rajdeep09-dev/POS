@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import imageCompression from 'browser-image-compression';
 import { BulkImportModal } from "@/components/BulkImportModal";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
 
 export default function Inventory() {
@@ -119,26 +120,21 @@ export default function Inventory() {
     let finalImageUrl = newImageUrl || undefined;
 
     if (capturedFile) {
-      toast.info("Compressing & Uploading image...", { id: 'upload' });
+      toast.info("Uploading image to Cloudinary...", { id: 'upload' });
       try {
-        const options = { maxSizeMB: 0.1, maxWidthOrHeight: 1024, useWebWorker: true };
-        const compressedFile = await imageCompression(capturedFile, options);
-
-        const fileExt = capturedFile.name.split('.').pop() || 'jpg';
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const { error } = await supabase.storage.from('product-images').upload(`variants/${fileName}`, compressedFile);
-          
-        if (!error) {
-          const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(`variants/${fileName}`);
-          finalImageUrl = publicUrlData.publicUrl;
-          toast.success("Image compressed & uploaded!", { id: 'upload' });
-          
-          const prod = await db.products.get(productId);
-          if (prod && !prod.image_url) {
-            await db.products.update(productId, { image_url: finalImageUrl, updated_at: new Date().toISOString() });
-          }
+        // Task 2: Call the new utility function
+        finalImageUrl = await uploadToCloudinary(capturedFile);
+        toast.success("Image uploaded successfully!", { id: 'upload' });
+        
+        const prod = await db.products.get(productId);
+        if (prod && !prod.image_url) {
+          await db.products.update(productId, { image_url: finalImageUrl, updated_at: new Date().toISOString() });
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        // Task 3: Handle failures gracefully
+        console.error("Cloudinary Upload Error:", e);
+        toast.error("Cloudinary upload failed. Saving without image.", { id: 'upload' });
+      }
     }
     
     try {
