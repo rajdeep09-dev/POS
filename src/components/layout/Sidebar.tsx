@@ -71,7 +71,6 @@ export function Sidebar() {
         </Button>
         <div className="text-xs text-center text-slate-400 font-medium flex flex-col items-center gap-1 pt-2">
             <span>Vyapar Sync v1.2</span>
-            <span className="text-[10px] text-slate-300 tracking-widest uppercase">Created by @rajdeep.0.21</span>
         </div>
       </div>
     </div>

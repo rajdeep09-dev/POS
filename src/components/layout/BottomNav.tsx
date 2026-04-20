@@ -54,7 +54,6 @@ export function BottomNav() {
           );
         })}
       </nav>
-      <div className="text-[10px] text-zinc-400 font-bold tracking-widest bg-white/50 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20 shadow-sm">Created by @rajdeep.0.21</div>
     </div>
   );
 }
