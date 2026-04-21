@@ -1,15 +1,15 @@
--- ENTERPRISE V13 FINAL SQL SCHEMA
+-- ENTERPRISE V13 FINAL SQL SCHEMA (FIXED FOR CASCADE)
 -- Run this in Supabase SQL Editor for a 100% Clean Sync
 
--- 1. DROP EXISTING (ONLY IF YOU WANT A TOTAL WIPE)
-DROP TABLE IF EXISTS digital_bills;
-DROP TABLE IF EXISTS bills;
-DROP TABLE IF EXISTS khata_transactions;
-DROP TABLE IF EXISTS customers;
-DROP TABLE IF EXISTS sale_items;
-DROP TABLE IF EXISTS sales;
-DROP TABLE IF EXISTS variants;
-DROP TABLE IF EXISTS products;
+-- 1. DROP EXISTING WITH CASCADE (Ensures constraints don't block the wipe)
+DROP TABLE IF EXISTS digital_bills CASCADE;
+DROP TABLE IF EXISTS bills CASCADE;
+DROP TABLE IF EXISTS khata_transactions CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS sale_items CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS variants CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
 
 -- 2. CREATE TABLES
 CREATE TABLE products (
@@ -26,7 +26,7 @@ CREATE TABLE products (
 
 CREATE TABLE variants (
   id UUID PRIMARY KEY,
-  product_id UUID REFERENCES products(id),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
   size TEXT,
   unit TEXT CHECK (unit IN ('pcs', 'kg')),
   stock NUMERIC DEFAULT 0,
@@ -51,7 +51,7 @@ CREATE TABLE sales (
   total_amount NUMERIC NOT NULL,
   discount NUMERIC DEFAULT 0,
   payment_method TEXT,
-  customer_id UUID,
+  customer_id UUID, -- We keep this loose for walk-in customers
   date TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   is_deleted INTEGER DEFAULT 0,
@@ -62,8 +62,8 @@ CREATE TABLE sales (
 
 CREATE TABLE sale_items (
   id UUID PRIMARY KEY,
-  sale_id UUID REFERENCES sales(id),
-  variant_id UUID REFERENCES variants(id),
+  sale_id UUID REFERENCES sales(id) ON DELETE CASCADE,
+  variant_id UUID REFERENCES variants(id) ON DELETE CASCADE,
   quantity NUMERIC NOT NULL,
   unit_price NUMERIC NOT NULL,
   subtotal NUMERIC NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE customers (
 
 CREATE TABLE khata_transactions (
   id UUID PRIMARY KEY,
-  customer_id UUID REFERENCES customers(id),
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
   type TEXT,
   payment_method TEXT,
@@ -123,5 +123,5 @@ CREATE TABLE digital_bills (
   version_clock BIGINT DEFAULT 0
 );
 
--- 3. ENABLE REALTIME (Optional but recommended)
+-- 3. ENABLE REALTIME
 alter publication supabase_realtime add table products, variants, sales, sale_items, customers, khata_transactions, bills, digital_bills;

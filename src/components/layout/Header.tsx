@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown, DatabaseBackup, AlertCircle, Zap, ShieldCheck, Moon, Sun, Languages } from "lucide-react";
+import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown, DatabaseBackup, AlertCircle, Zap, ShieldCheck, Moon, Sun, Languages, BookOpen, Smartphone, Barcode, HardDrive, Undo2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -65,17 +66,6 @@ export function Header() {
     window.dispatchEvent(new CustomEvent('lang-changed', { detail: newLang }));
   };
 
-  const handleClearCache = async () => {
-    if (confirm("DANGER: Clear local cache?")) {
-        try {
-            localStorage.removeItem('last_db_sync');
-            await db.delete();
-            toast.success("Cache cleared. Re-syncing...");
-            setTimeout(() => window.location.reload(), 1000);
-        } catch { toast.error("Failed to clear cache"); }
-    }
-  };
-
   const handleManualSync = () => {
     toast.info("Triggering Cloud Sync...");
     window.dispatchEvent(new Event('request-sync'));
@@ -83,26 +73,14 @@ export function Header() {
 
   const translations = {
     en: {
-      title: "System Console",
-      pos: "POS Checkout",
-      inv: "Master Catalog",
-      khata: "Digital Khata",
-      vault: "GST Vault",
-      history: "Archives",
-      manual: "Admin Manual",
-      welcome: "Welcome to Joy Ram Steel Enterprise Suite. This guide will help you manage your business like a pro.",
-      btn: "Got it, Let's work"
+      title: "System Console", pos: "POS Checkout", inv: "Master Catalog", khata: "Digital Khata", vault: "GST Vault", history: "Archives",
+      manual: "Enterprise Admin Manual", welcome: "A-Z Operational Guide for Joy Ram Steel.", btn: "Confirm & Close", last: "Last Sync",
+      syncing: "Syncing...", error: "Sync Error", synced: "Cloud Synced", force: "Force Sync", clear: "Clear Cache"
     },
     bn: {
-      title: "সিস্টেম কনসোল",
-      pos: "পিওএস চেকআউট",
-      inv: "মাস্টার ক্যাটালগ",
-      khata: "ডিজিটাল খাতা",
-      vault: "জিএসটি ভল্ট",
-      history: "আর্কাইভস",
-      manual: "অ্যাডমিন ম্যানুয়াল",
-      welcome: "জয় রাম স্টিল এন্টারপ্রাইজ সুটে আপনাকে স্বাগতম। এই নির্দেশিকাটি আপনাকে আপনার ব্যবসা পরিচালনায় সাহায্য করবে।",
-      btn: "বুঝেছি, কাজ শুরু করি"
+      title: "সিস্টেম কনসোল", pos: "পিওএস চেকআউট", inv: "মাস্টার ক্যাটালগ", khata: "ডিজিটাল খাতা", vault: "জিএসটি ভল্ট", history: "আর্কাইভস",
+      manual: "এন্টারপ্রাইজ অ্যাডমিন ম্যানুয়াল", welcome: "জয় রাম স্টিলের জন্য সম্পূর্ণ এ-টু-জেড গাইড।", btn: "নিশ্চিত করুন", last: "শেষ সিঙ্ক",
+      syncing: "সিঙ্ক হচ্ছে...", error: "সিঙ্ক ত্রুটি", synced: "ক্লাউড সিঙ্কড", force: "ম্যানুয়াল সিঙ্ক", clear: "ক্যাশ মুছুন"
     }
   };
 
@@ -115,48 +93,66 @@ export function Header() {
   else if (pathname === "/vault") displayTitle = t.vault;
   else if (pathname === "/history") displayTitle = t.history;
 
-  const manualSteps = [
+  const fullManual = [
     {
-      en: { title: "🚀 POS (Billing)", desc: "Scan barcodes or search items. Use the 'Bargain Slider' for discounts. The system handles Kg and Combo items automatically." },
-      bn: { title: "🚀 পিওএস (বিলিং)", desc: "বারকোড স্ক্যান করুন বা আইটেম খুঁজুন। ডিসকাউন্টের জন্য 'Bargain Slider' ব্যবহার করুন। সিস্টেম ওজন (Kg) এবং কম্বো আইটেম অটো হ্যান্ডেল করে।" },
-      color: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+      icon: <Zap className="h-5 w-5 text-blue-500" />,
+      en: { title: "01. Billing Mastery", desc: "Open the POS. You can add items in 3 ways: 1) Handheld Laser Scanner 2) Mobile Camera Button 3) Barcode Image Upload. The system auto-detects barcodes and adds them instantly without clicking." },
+      bn: { title: "০১. বিলিং মাস্টারী", desc: "পিওএস (POS) খুলুন। আপনি ৩টি উপায়ে আইটেম যোগ করতে পারেন: ১) হ্যান্ডহেল্ড লেজার স্ক্যানার ২) মোবাইল ক্যামেরা বাটন ৩) বারকোড ইমেজ আপলোড। সিস্টেম অটোমেটিক বারকোড শনাক্ত করে এবং ক্লিক ছাড়াই আইটেম যোগ করে।" }
     },
     {
-      en: { title: "📦 Inventory", desc: "Add brands as 'Master Products' first. Then add 'Variants' (sizes) underneath. Auto-barcode generates strings starting with 890." },
-      bn: { title: "📦 ইনভেন্টরি", desc: "প্রথমে 'Master Products' হিসেবে ব্র্যান্ড যোগ করুন। তারপর তার নিচে 'Variants' (সাইজ) যোগ করুন। অটো-বারকোড ৮৯০ দিয়ে শুরু হওয়া কোড তৈরি করে।" },
-      color: "bg-zinc-50 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-400"
+      icon: <Tag className="h-5 w-5 text-purple-500" />,
+      en: { title: "02. Pricing Modes", desc: "Standard: Sell 1 piece. Combo/Bundle: Sell a pack (e.g., 4 for 100). The system will deduct exactly 4 units from stock. Weight: Sold by Kg for hardware items." },
+      bn: { title: "০২. প্রাইসিং মোড", desc: "স্ট্যান্ডার্ড: ১ পিস বিক্রি করুন। কম্বো/বান্ডিল: প্যাক বিক্রি করুন (যেমন ৪টি ১০০ টাকায়)। সিস্টেম স্টক থেকে ৪টি আইটেমই বিয়োগ করবে। ওজন: হার্ডওয়্যার আইটেমের জন্য কেজি হিসেবে বিক্রি করুন।" }
     },
     {
-      en: { title: "📘 Digital Khata", desc: "Track Market Credit. Record payments and send WhatsApp reminders when balance is high." },
-      bn: { title: "📘 ডিজিটাল খাতা", desc: "মার্কেট ক্রেডিট ট্র্যাক করুন। পেমেন্ট রেকর্ড করুন এবং ব্যালেন্স বেশি হলে হোয়াটসঅ্যাপ রিমাইন্ডার পাঠান।" },
-      color: "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+      icon: <Undo2 className="h-5 w-5 text-red-500" />,
+      en: { title: "03. Sales Returns", desc: "Go to Archives. Click the Red Rotate button. This reverses the sale revenue AND automatically adds the items back to your physical stock count." },
+      bn: { title: "০৩. সেলস রিটার্ন", desc: "আর্কাইভস (Archives) এ যান। লাল রোটেট বাটনে ক্লিক করুন। এটি বিক্রির টাকা বিয়োগ করবে এবং আইটেমগুলো অটোমেটিক স্টকে ফেরত যোগ করবে।" }
     },
     {
-      en: { title: "🛡️ GST Vault", desc: "Digitize supplier bills using camera. All generated GST/eWay bills are also archived here." },
-      bn: { title: "🛡️ জিএসটি ভল্ট", desc: "ক্যামেরা ব্যবহার করে সাপ্লায়ার বিল ডিজিটাল করুন। সব তৈরি করা জিএসটি/ইওয়ে বিল এখানে অটো সেভ হয়।" },
-      color: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+      icon: <BookOpen className="h-5 w-5 text-amber-500" />,
+      en: { title: "04. Digital Khata", desc: "Add customers. Use 'Receive Payment' to reduce balance. Click 'Download Ledger' to get a professional A4 PDF statement to give to the customer." },
+      bn: { title: "০৪. ডিজিটাল খাতা", desc: "কাস্টমার যোগ করুন। ব্যালেন্স কমাতে 'Receive Payment' ব্যবহার করুন। কাস্টমারকে দেওয়ার জন্য প্রফেশনাল A4 PDF স্টেটমেন্ট পেতে 'Download Ledger' ক্লিক করুন।" }
+    },
+    {
+      icon: <Smartphone className="h-5 w-5 text-emerald-500" />,
+      en: { title: "05. PWA (App Install)", desc: "Open this site on your mobile browser. Click 'Add to Home Screen' in browser settings. The app will now open full-screen and work even without Internet." },
+      bn: { title: "০৫. PWA (অ্যাপ ইনস্টল)", desc: "আপনার মোবাইল ব্রাউজারে এই সাইটটি খুলুন। ব্রাউজার সেটিংসে 'Add to Home Screen' ক্লিক করুন। অ্যাপটি এখন ফুল-স্ক্রিনে খুলবে এবং ইন্টারনেট ছাড়াও কাজ করবে।" }
+    },
+    {
+      icon: <HardDrive className="h-5 w-5 text-zinc-500" />,
+      en: { title: "06. Deletion Logic", desc: "To delete a Master Brand, you must delete all its Variants (sizes) first. This protects your data integrity." },
+      bn: { title: "০৬. ডিলিট লজিক", desc: "একটি মাস্টার ব্র্যান্ড ডিলিট করতে হলে প্রথমে তার সব ভ্যারিয়েন্ট (সাইজ) ডিলিট করতে হবে। এটি আপনার ডেটা সুরক্ষিত রাখে।" }
     }
   ];
 
   return (
     <header className="sticky top-0 z-40 flex h-24 items-center justify-between border-b border-zinc-100 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 px-4 md:px-10 backdrop-blur-3xl shadow-sm text-left transition-colors">
       <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
-        <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] bg-white dark:bg-zinc-900 border-none shadow-2xl p-10 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase mb-4 flex items-center gap-3 dark:text-white">
-               <ShieldCheck className="h-8 w-8 text-blue-600" /> {t.manual}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] leading-relaxed border-b border-zinc-100 dark:border-zinc-800 pb-6">{t.welcome}</p>
-            {manualSteps.map((step, i) => (
-              <div key={i} className={cn("p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 transition-all hover:shadow-xl", step.color)}>
-                 <h4 className="font-black text-lg mb-2 uppercase italic tracking-tight">{step[lang].title}</h4>
-                 <p className="text-[11px] font-bold leading-relaxed opacity-80">{step[lang].desc}</p>
-              </div>
-            ))}
-            <Button onClick={()=>setIsManualOpen(false)} className="w-full h-16 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-black uppercase tracking-widest mt-6 shadow-2xl">{t.btn}</Button>
+        <DialogContent className="sm:max-w-[700px] rounded-[2.5rem] bg-white dark:bg-zinc-900 border-none shadow-2xl p-0 max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="p-10 pb-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
+             <DialogTitle className="text-3xl font-black italic tracking-tighter uppercase mb-2 flex items-center gap-3 dark:text-white">
+                <ShieldCheck className="h-10 w-10 text-blue-600" /> {t.manual}
+             </DialogTitle>
+             <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] leading-relaxed">{t.welcome}</p>
           </div>
+
+          <ScrollArea className="flex-1 p-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+              {fullManual.map((step, i) => (
+                <div key={i} className="p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-xl hover:border-zinc-200 dark:hover:border-zinc-700">
+                   <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-2xl shadow-inner">{step.icon}</div>
+                      <h4 className="font-black text-sm uppercase italic tracking-tight dark:text-white leading-tight">{step[lang].title}</h4>
+                   </div>
+                   <p className="text-[11px] font-bold leading-relaxed text-zinc-500 dark:text-zinc-400">{step[lang].desc}</p>
+                </div>
+              ))}
+            </div>
+            <Button onClick={()=>setIsManualOpen(false)} className="w-full h-20 rounded-[2rem] bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-black uppercase tracking-widest shadow-2xl mt-4 active:scale-95 transition-transform text-xs">
+               {t.btn}
+            </Button>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
@@ -175,7 +171,7 @@ export function Header() {
           variant="ghost" 
           size="icon" 
           onClick={toggleLang}
-          className="rounded-2xl h-10 w-10 md:h-12 md:w-12 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 transition-all font-black text-[10px] uppercase"
+          className="rounded-2xl h-10 w-10 md:h-12 md:w-12 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 transition-all font-black text-[10px] uppercase shadow-inner"
         >
           {lang === 'en' ? 'BN' : 'EN'}
         </Button>
@@ -187,7 +183,7 @@ export function Header() {
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="rounded-2xl h-10 w-10 md:h-12 md:w-12 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 transition-all shadow-inner"
           >
-            {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-zinc-900" />}
+            {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-zinc-900 dark:text-zinc-100" />}
           </Button>
         )}
 
@@ -200,16 +196,16 @@ export function Header() {
                           syncState === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/40' : 
                           'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100/50 dark:border-emerald-900/40 group-hover:bg-emerald-100'}`}>
                         {syncState === 'syncing' ? <Loader2 className="h-3 w-3 animate-spin" /> : syncState === 'error' ? <AlertCircle className="h-3 w-3" /> : <Cloud className="h-3 w-3" />}
-                        <span className="hidden sm:inline">{syncState === 'syncing' ? 'Syncing' : syncState === 'error' ? 'Error' : 'Synced'}</span>
+                        <span className="hidden sm:inline">{syncState === 'syncing' ? t.syncing : syncState === 'error' ? t.error : t.synced}</span>
                         <ChevronDown className="h-2 w-2 ml-1 opacity-40" />
                       </div>
                     )}
-                    {lastSync && <span className="text-[7px] md:text-[8px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-tighter hidden md:block">Last: {new Date(lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                    {lastSync && <span className="text-[7px] md:text-[8px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-tighter hidden md:block">{t.last}: {new Date(lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                 </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 w-48 z-[2000]">
-                <DropdownMenuItem onClick={handleManualSync} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white"><DatabaseBackup className="h-4 w-4 text-blue-600" /> Force Sync</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleClearCache} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20"><RefreshCcw className="h-4 w-4" /> Clear Cache</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleManualSync} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white"><DatabaseBackup className="h-4 w-4 text-blue-600" /> {t.force}</DropdownMenuItem>
+                <DropdownMenuItem onClick={async () => { if(confirm("DANGER: Clear local cache?")) { await db.delete(); window.location.reload(); } }} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20"><RefreshCcw className="h-4 w-4" /> {t.clear}</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
 
