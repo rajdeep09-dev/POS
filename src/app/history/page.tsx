@@ -86,7 +86,8 @@ export default function SalesHistory() {
     
     try {
       const now = new Date().toISOString();
-      await db.transaction('rw', db.sales, db.sale_items, db.variants, async () => {
+      // Ensure we explicitly name all tables involved in this multi-write transaction
+      await db.transaction('rw', [db.sales, db.sale_items, db.variants], async () => {
         // 1. Mark sale as returned
         await db.sales.update(sale.id, { 
           is_returned: 1, 
@@ -96,7 +97,7 @@ export default function SalesHistory() {
           sync_status: 'pending'
         });
 
-        // 2. Restock items
+        // 2. Restock items and update their clocks
         const items = await db.sale_items.where('sale_id').equals(sale.id).toArray();
         for (const item of items) {
           const variant = await db.variants.get(item.variant_id);
@@ -108,11 +109,18 @@ export default function SalesHistory() {
               sync_status: 'pending'
             });
           }
-          await db.sale_items.update(item.id, { is_returned: 1, updated_at: now, sync_status: 'pending' });
+          // Also mark the individual sale item as returned for history accuracy
+          await db.sale_items.update(item.id, { 
+            is_returned: 1, 
+            updated_at: now, 
+            version_clock: Date.now(),
+            sync_status: 'pending' 
+          });
         }
       });
-      toast.success("Inventory restocked and bill marked as returned");
+      toast.success("Inventory restored successfully");
     } catch (e) {
+      console.error("Return Transaction Failed:", e);
       toast.error("Failed to process return");
     }
   };
