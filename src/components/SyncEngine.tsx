@@ -52,11 +52,9 @@ export function SyncEngine() {
       ];
 
       for (const table of tables) {
-        // 1. PULL
+        // 1. PULL: Only pull active items or deletions we don't have yet
         let pullQuery = supabase.from(table.name).select('*');
         
-        // If not force sync and we have a last sync, only get new stuff
-        // But for Browser B (new browser), lastSyncTime will be null, so it gets everything.
         if (!isForce && lastSyncTime) {
           pullQuery = pullQuery.gt('updated_at', lastSyncTime);
         }
@@ -66,10 +64,16 @@ export function SyncEngine() {
         if (!pullError && cloudChanges && cloudChanges.length > 0) {
           for (const cloudItem of cloudChanges) {
             const localItem = await (table.db as any).get(cloudItem.id);
-            // CRDT: If cloud has higher clock, it always wins
             const cloudClock = cloudItem.version_clock || 0;
             const localClock = localItem?.version_clock || 0;
             
+            // CRITICAL: If the cloud item is deleted, remove it locally immediately 
+            // OR update local status if we use soft-deletes
+            if (cloudItem.is_deleted === 1) {
+              await (table.db as any).delete(cloudItem.id);
+              continue;
+            }
+
             if (!localItem || cloudClock > localClock || (cloudClock === localClock && new Date(cloudItem.updated_at) > new Date(localItem.updated_at))) {
               await (table.db as any).put({ ...cloudItem, sync_status: 'synced' });
             }
