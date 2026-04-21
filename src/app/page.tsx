@@ -63,13 +63,21 @@ export default function Dashboard() {
   const allProducts = products || [];
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const todaysSales = allSales.filter(s => s.date.startsWith(todayStr));
+  const todaysSales = allSales.filter(s => s.date.startsWith(todayStr) && s.is_returned !== 1);
   const todayRevenue = todaysSales.reduce((acc, sale) => acc + sale.total_amount, 0);
 
   const lowStock = allVariants.filter(v => v.stock < 10).map(v => {
     const p = allProducts.find(p => p.id === v.product_id);
     return { ...v, productName: p?.name || "Unknown" };
   }).sort((a, b) => a.stock - b.stock);
+
+  // Filter out items from returned sales
+  const recentMovements = allSaleItems
+    .filter(si => {
+      const parentSale = allSales.find(s => s.id === si.sale_id);
+      return parentSale && parentSale.is_returned !== 1;
+    })
+    .slice().reverse().slice(0, 7);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-20 text-left">
@@ -162,7 +170,7 @@ export default function Dashboard() {
                       </TableRow>
                    </TableHeader>
                    <TableBody>
-                      {allSaleItems.slice().reverse().slice(0, 7).map(si => {
+                      {recentMovements.map(si => {
                         const v = allVariants.find(v => v.id === si.variant_id);
                         const p = allProducts.find(p => p.id === v?.product_id);
                         const s = allSales.find(s => s.id === si.sale_id);

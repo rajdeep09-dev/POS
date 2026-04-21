@@ -82,34 +82,31 @@ export default function SalesHistory() {
   const filteredSales = getFilteredSales();
 
   const handleReturnSale = async (sale: any) => {
-    if (!confirm("Are you sure? This will mark the entire bill as RETURNED and restock items.")) return;
+    if (!confirm("Return this entire bill? This will reverse revenue and RESTOCK all items in inventory.")) return;
     
+    const loadingToast = toast.loading("Executing Inventory Reversal...");
     try {
       const now = new Date().toISOString();
-      // Ensure we explicitly name all tables involved in this multi-write transaction
+      
+      // ENTER ACID TRANSACTION
       await db.transaction('rw', [db.sales, db.sale_items, db.variants], async () => {
-        // 1. Mark sale as returned
-        await db.sales.update(sale.id, { 
-          is_returned: 1, 
-          return_date: now,
-          updated_at: now,
-          version_clock: (sale.version_clock || 0) + 1,
-          sync_status: 'pending'
-        });
-
-        // 2. Restock items and update their clocks
+        // 1. Fetch Line Items
         const items = await db.sale_items.where('sale_id').equals(sale.id).toArray();
+        
+        // 2. Loop and RESTOCK each physical variant
         for (const item of items) {
           const variant = await db.variants.get(item.variant_id);
           if (variant) {
+            const newStock = variant.stock + item.quantity;
             await db.variants.update(item.variant_id, {
-              stock: variant.stock + item.quantity,
+              stock: newStock,
               updated_at: now,
               version_clock: (variant.version_clock || 0) + 1,
               sync_status: 'pending'
             });
           }
-          // Also mark the individual sale item as returned for history accuracy
+          
+          // 3. Mark Line Item as Returned for audit
           await db.sale_items.update(item.id, { 
             is_returned: 1, 
             updated_at: now, 
@@ -117,11 +114,21 @@ export default function SalesHistory() {
             sync_status: 'pending' 
           });
         }
+
+        // 4. Mark the Parent Sale as Returned (Excludes it from Dashboard Revenue)
+        await db.sales.update(sale.id, { 
+          is_returned: 1, 
+          return_date: now,
+          updated_at: now,
+          version_clock: (sale.version_clock || 0) + 1,
+          sync_status: 'pending'
+        });
       });
-      toast.success("Inventory restored successfully");
+
+      toast.success("Inventory Restored & Revenue Reversed", { id: loadingToast });
     } catch (e) {
       console.error("Return Transaction Failed:", e);
-      toast.error("Failed to process return");
+      toast.error("Failed to process return", { id: loadingToast });
     }
   };
 
