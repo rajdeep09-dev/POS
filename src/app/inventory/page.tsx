@@ -113,6 +113,7 @@ export default function Inventory() {
       });
       toast.success("Variant deployed");
       setNewSize(""); setNewStock(""); setNewPrice(""); setCapturedFile(null); setSelectedProductId(null);
+      setNewUnitsPerCombo("1");
     } catch { toast.error("Deployment failed"); } finally { setIsUploading(false); }
   };
 
@@ -164,7 +165,7 @@ export default function Inventory() {
         <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" onClick={() => setIsImportOpen(true)} className="flex-1 sm:flex-none h-11 rounded-xl font-bold uppercase text-[10px] tracking-widest border-zinc-200 dark:border-zinc-800 dark:text-white shadow-sm">Import</Button>
           <Dialog>
-            <DialogTrigger className="flex-1 sm:flex-none">
+            <DialogTrigger>
               <div className="h-11 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold uppercase text-[10px] tracking-widest px-6 flex items-center justify-center cursor-pointer shadow-xl transition-transform active:scale-95">
                  <Plus className="mr-2 h-4 w-4" /> Add Product
               </div>
@@ -188,6 +189,7 @@ export default function Inventory() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Master Product Management */}
         <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl p-6 bg-white dark:bg-zinc-900 overflow-hidden relative border">
            <div className="absolute top-0 right-0 p-4 opacity-5"><PackageOpen className="h-20 w-20 dark:text-white" /></div>
            <h4 className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Master Brands ({products.length})</h4>
@@ -265,15 +267,21 @@ export default function Inventory() {
                 </span>
               </DialogTitle>
            </DialogHeader>
-           <div className="space-y-6 pt-6">
-              <Select onValueChange={(val: any) => setSelectedProductId(val)} value={selectedProductId || ""}>
-                <SelectTrigger className="h-14 rounded-2xl font-bold bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"><SelectValue placeholder="Brand Name" /></SelectTrigger>
-                <SelectContent className="bg-white dark:bg-zinc-800 z-[6000] border-zinc-100 dark:border-zinc-700">{products.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">{p.name}</SelectItem>)}</SelectContent>
-              </Select>
+           <div className="space-y-6 pt-6 text-left">
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Parent Entity (Brand)</Label>
+                 <Select onValueChange={(val: any) => setSelectedProductId(val)} value={selectedProductId || ""}>
+                   <SelectTrigger className="h-14 rounded-2xl font-bold bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white">
+                     <SelectValue placeholder="Brand Name" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-white dark:bg-zinc-800 z-[6000] border-zinc-100 dark:border-zinc-700">
+                     {products.map(p => <SelectItem key={p.id} value={p.id} className="font-bold">{p.name}</SelectItem>)}
+                   </SelectContent>
+                 </Select>
+              </div>
 
-              {/* Simplified Pricing Selector with asking logic */}
-              <div className="space-y-3">
-                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Select Pricing Strategy</Label>
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Pricing Strategy</Label>
                  <div className="grid grid-cols-3 gap-2">
                    {['standard', 'bundle', 'weight'].map(m => (
                      <button key={m} type="button" onClick={()=>setPricingMode(m as any)} className={cn("h-12 rounded-xl text-[8px] font-black uppercase tracking-tighter border transition-all", (newPricingType === m || (m === 'weight' && newUnit === 'kg')) ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-transparent shadow-lg scale-105" : "bg-zinc-50 dark:bg-zinc-800 text-zinc-400 dark:border-zinc-700")}>
@@ -307,7 +315,7 @@ export default function Inventory() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Variant Identity</Label>
-                <div className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 flex flex-col items-center gap-3 relative bg-zinc-50 dark:bg-zinc-800/50 group hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors overflow-hidden">
+                <div className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-6 flex flex-col items-center gap-3 relative bg-zinc-50 dark:bg-zinc-800/50 group hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors overflow-hidden text-center">
                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e=>setCapturedFile(e.target.files?.[0] || null)} />
                    {capturedFile ? (
                       <div className="relative w-full h-20">
