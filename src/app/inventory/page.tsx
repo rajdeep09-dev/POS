@@ -363,10 +363,22 @@ export default function Inventory() {
                 </div>
               </div>
             ))}
-            <Button variant="outline" className="h-full min-h-[200px] border-2 border-dashed rounded-[2.5rem] flex flex-col gap-3 dark:border-zinc-800 dark:text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all" onClick={() => handleOpenVariantModal()}>
-              <div className="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-full shadow-inner"><Plus className="h-8 w-8 text-zinc-400" /></div>
-              <span className="text-[10px] font-black uppercase tracking-widest">New Variant</span>
+            <Button 
+              variant="outline" 
+              className="h-full min-h-[200px] border-2 border-dashed rounded-[2.5rem] flex flex-col gap-3 dark:border-zinc-800 dark:text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all w-full" 
+              onClick={() => {
+                if (products.length > 0) {
+                  handleOpenVariantModal();
+                  setSelectedProductId(products[0].id);
+                } else {
+                  toast.error("Please add a Master Brand first!");
+                }
+              }}
+            >
+               <div className="p-4 bg-zinc-100 dark:bg-zinc-800 rounded-full shadow-inner"><Plus className="h-8 w-8 text-zinc-400" /></div>
+               <span className="text-[10px] font-black uppercase tracking-widest">New Variant</span>
             </Button>
+
           </div>
         ) : (
           <Card className="border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-[2.5rem] overflow-hidden bg-white dark:bg-zinc-900 border">

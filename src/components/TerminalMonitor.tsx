@@ -51,22 +51,6 @@ export function TerminalMonitor() {
           </motion.div>
         )}
 
-        {/* Sync Status Badge */}
-        <motion.div 
-          layout
-          className={cn(
-            "px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-3 border font-black text-[9px] uppercase tracking-widest transition-all",
-            syncStatus === 'syncing' ? "bg-zinc-900 border-zinc-800 text-blue-400" : "bg-white/80 backdrop-blur-xl border-zinc-100 text-zinc-400"
-          )}
-        >
-          {syncStatus === 'syncing' ? (
-            <CloudSync className="h-4 w-4 animate-spin" />
-          ) : (
-            <Zap className={cn("h-4 w-4", isOnline ? "text-amber-500" : "text-zinc-300")} />
-          )}
-          {syncStatus === 'syncing' ? "Encrypting Delta..." : "Cloud Verified"}
-        </motion.div>
-
         {/* PWA Shield Badge */}
         {isPWA && (
           <motion.div 
