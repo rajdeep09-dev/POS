@@ -138,17 +138,25 @@ export default function Inventory() {
   };
 
   const handleSaveVariant = async () => {
-    if (!selectedProductId || !newSize || !newStock || !newPrice) return toast.error("Fill all fields");
+    // 1. Loose Validation (Allow MSP to be empty, default to Retail Price)
+    if (!selectedProductId || !newSize || !newStock || !newPrice) {
+      toast.error("Please fill required fields: Brand, Size, Stock, and Price");
+      return;
+    }
+
     setIsUploading(true);
     let url = editingVariant?.image_url;
+    
     try {
       if (capturedFile) {
+        toast.info("Authorising Media Cloud...", { id: 'v-save' });
         url = await uploadCompressedToCloudinary(capturedFile);
       }
+      
       const now = new Date().toISOString();
       const payload: any = {
         product_id: selectedProductId,
-        size: newSize,
+        size: newSize.toUpperCase(),
         unit: newUnit as any,
         stock: parseInt(newStock),
         dented_stock: 0,
@@ -167,7 +175,7 @@ export default function Inventory() {
 
       if (editingVariant) {
         await db.variants.update(editingVariant.id, payload);
-        toast.success("Variant Updated");
+        toast.success("Variant Updated Successfully", { id: 'v-save' });
       } else {
         await db.variants.add({
           id: uuidv4(),
@@ -177,11 +185,25 @@ export default function Inventory() {
           is_deleted: 0,
           version_clock: Date.now()
         });
-        toast.success("Variant Deployed");
+        toast.success("New Variant Deployed", { id: 'v-save' });
       }
+
+      // 2. Full State Reset
       setEditingVariant(null);
       setSelectedProductId(null);
-    } catch { toast.error("Save failed"); } finally { setIsUploading(false); }
+      setNewSize("");
+      setNewStock("");
+      setNewPrice("");
+      setNewMsp("");
+      setNewBundleQty("");
+      setNewBundlePrice("");
+      setCapturedFile(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Deployment Interrupted", { id: 'v-save' }); 
+    } finally { 
+      setIsUploading(false); 
+    }
   };
 
   const handleDeleteMasterProduct = async (id: string, name: string) => {
