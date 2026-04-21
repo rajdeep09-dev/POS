@@ -48,6 +48,7 @@ export default function POS() {
   const [gstInitialItems, setGstInitialItems] = useState<any[]>([]);
 
   const parkedCarts = useLiveQuery(() => db.parked_carts.toArray()) || [];
+  const categories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray()) || [];
 
   usePOSEvents({
     onPayment: () => handleCheckout(),
@@ -90,14 +91,12 @@ export default function POS() {
   const isBelowMsp = finalTotal < totalMsp;
 
   const addToCart = (variant: any) => {
-    // 1. Optimistic UI: Use Prepend to 'Pop' item into cart
     setCart(prev => {
       const existing = prev.find(item => item.id === variant.id);
       const unitsToAdd = variant.units_per_combo || 1;
       
       let newQty = existing ? (variant.unit === 'kg' ? 1 : existing.qty + unitsToAdd) : unitsToAdd;
       
-      // 2. Decimal Precision Guard for Weights
       if (variant.unit === 'kg') {
         newQty = Number(parseFloat(newQty.toString()).toFixed(3));
       }
@@ -146,7 +145,6 @@ export default function POS() {
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessing) return;
     
-    // 3. Credit Ceiling Logic for Khata
     if (paymentMode === 'khata') {
       const customerName = prompt("Customer Name for Khata:");
       if (!customerName) return;
@@ -167,13 +165,10 @@ export default function POS() {
       const now = new Date().toISOString();
 
       await db.transaction('rw', [db.sales, db.sale_items, db.variants], async () => {
-        // 1. Price Integrity Validation
         let verifiedSubtotal = 0;
         for (const item of cart) {
           const freshVariant = await db.variants.get(item.id);
           if (!freshVariant || freshVariant.is_deleted === 1) throw new Error(`${item.productName} is no longer in catalog.`);
-          
-          // Re-calculate using server-side pricing utility
           const itemTotal = calculateItemTotal(freshVariant, item.qty);
           verifiedSubtotal += itemTotal;
         }
@@ -181,13 +176,11 @@ export default function POS() {
         const verifiedDiscount = Math.min(discount, verifiedSubtotal);
         const verifiedTotal = verifiedSubtotal - verifiedDiscount;
 
-        // 2. Commit Secure Sale
         await db.sales.add({
           id: saleId, total_amount: verifiedTotal, discount: verifiedDiscount, payment_method: paymentMode,
           date: now, updated_at: now, sync_status: 'pending', is_deleted: 0, version_clock: Date.now()
         });
 
-        // 3. Stock Deduction
         for (const item of cart) {
           await db.sale_items.add({
             id: uuidv4(), sale_id: saleId, variant_id: item.id, quantity: item.qty,
@@ -197,13 +190,8 @@ export default function POS() {
           
           const variant = await db.variants.get(item.id);
           if (variant) {
-            // Negative stock is logged but allowed for offline flexibility
             const newStock = variant.stock - item.qty;
-            await db.variants.update(item.id, { 
-              stock: newStock, 
-              updated_at: now, 
-              version_clock: (variant.version_clock || 0) + 1 
-            });
+            await db.variants.update(item.id, { stock: newStock, updated_at: now, version_clock: (variant.version_clock || 0) + 1 });
           }
         }
       });
@@ -237,9 +225,10 @@ export default function POS() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 pt-4">
-            <TabsList className="bg-zinc-100 p-1 rounded-xl w-full justify-start h-auto flex-wrap">
-              {["all", "buckets", "tiffins", "bottles"].map(t => (
-                <TabsTrigger key={t} value={t} className="rounded-lg px-6 py-2 font-bold uppercase text-[10px] tracking-widest">{t}</TabsTrigger>
+            <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-full justify-start h-auto flex-wrap gap-2">
+              <TabsTrigger value="all" className="rounded-lg px-6 py-2 font-bold uppercase text-[10px] tracking-widest">All Items</TabsTrigger>
+              {categories.map(c => (
+                <TabsTrigger key={c.id} value={c.name} className="rounded-lg px-6 py-2 font-bold uppercase text-[10px] tracking-widest">{c.name}</TabsTrigger>
               ))}
             </TabsList>
           </div>
@@ -256,7 +245,7 @@ export default function POS() {
       {/* Cart */}
       <div className="w-full lg:w-[420px] flex flex-col gap-6 shrink-0">
         <Card className="flex-1 border-zinc-200 shadow-xl rounded-3xl flex flex-col min-h-0 bg-white">
-          <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
+          <div className="p-6 border-b border-zinc-100 flex justify-between items-center text-left">
             <h3 className="font-black text-xl flex items-center gap-3 tracking-tight"><ShoppingCart className="h-5 w-5" /> CART</h3>
             <div className="flex gap-2">
                {parkedCarts.length > 0 && <Badge className="bg-blue-600 cursor-pointer" onClick={() => handleResumeCart(parkedCarts[0])}>{parkedCarts.length} Parked</Badge>}
@@ -273,19 +262,14 @@ export default function POS() {
                   </div>
                   <div className="text-right flex items-center gap-3">
                     <div>
-                      <div className="font-black text-sm text-right">₹{item.line_total}</div>
+                      <div className="font-black text-sm text-right tabular-nums">₹{item.line_total}</div>
                       <div className="flex items-center gap-2 mt-2 bg-white rounded-lg border border-zinc-200 p-1">
                         <button onClick={() => updateQty(item.id, -1)} className="h-6 w-6 flex items-center justify-center hover:bg-zinc-100 rounded"><Minus className="h-3 w-3" /></button>
                         <span className="text-xs font-black min-w-[20px] text-center tabular-nums">{item.qty}</span>
                         <button onClick={() => updateQty(item.id, 1)} className="h-6 w-6 flex items-center justify-center hover:bg-zinc-100 rounded"><Plus className="h-3 w-3" /></button>
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => removeItem(item.id)}
-                      className="h-8 w-8 text-zinc-300 hover:text-red-500 transition-colors"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} className="h-8 w-8 text-zinc-300 hover:text-red-500 transition-colors">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -296,18 +280,18 @@ export default function POS() {
           <div className="p-6 bg-zinc-50 border-t border-zinc-100 space-y-4 rounded-b-3xl">
             <div className="flex justify-between text-xs font-bold text-zinc-500 uppercase tracking-widest">
               <span>Subtotal</span>
-              <span>₹{subtotal}</span>
+              <span className="tabular-nums">₹{subtotal}</span>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-[10px] font-black uppercase text-blue-600">
                 <span>Discount</span>
-                <span>- ₹{actualDiscount}</span>
+                <span className="tabular-nums">- ₹{actualDiscount}</span>
               </div>
               <Slider value={[actualDiscount]} max={subtotal} step={10} onValueChange={(vals) => setDiscount(Array.isArray(vals) ? vals[0] : vals as any)} />
             </div>
             <div className="pt-2 flex justify-between items-end border-t border-zinc-200">
               <span className="text-[10px] font-black uppercase text-zinc-400">Total Payable</span>
-              <span className={cn("text-4xl font-black tracking-tighter", isBelowMsp ? 'text-red-600' : 'text-zinc-900')}>₹{finalTotal}</span>
+              <span className={cn("text-4xl font-black tracking-tighter tabular-nums", isBelowMsp ? 'text-red-600' : 'text-zinc-900')}>₹{finalTotal}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
               {['cash', 'upi', 'khata'].map(m => (

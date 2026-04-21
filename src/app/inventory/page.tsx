@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, Search, PackageOpen, Tag, Barcode as BarcodeIcon, Camera, 
   UploadCloud, AlertTriangle, Truck, Trash2, Link as LinkIcon, 
-  Loader2, Info, Edit2, LayoutGrid, List, CheckCircle2, X, Download
+  Loader2, Info, Edit2, LayoutGrid, List, CheckCircle2, X, Download,
+  Settings2, Layers
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,64 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { BarcodeViewModal } from "@/components/BarcodeViewModal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Barcode from "react-barcode";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
+
+/**
+ * NEW: Department/Category Manager Component
+ */
+function CategoryManager({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const [newName, setNewName] = useState("");
+  const categories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray()) || [];
+
+  const handleAdd = async () => {
+    if (!newName) return;
+    const now = new Date().toISOString();
+    await db.categories.add({
+      id: uuidv4(),
+      name: newName.toUpperCase(),
+      updated_at: now,
+      is_deleted: 0,
+      sync_status: 'pending',
+      version_clock: Date.now()
+    });
+    setNewName("");
+    toast.success("Department Added");
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this department?")) return;
+    await db.categories.update(id, { is_deleted: 1, updated_at: new Date().toISOString() });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="rounded-[2rem] p-8 bg-white dark:bg-zinc-900 border-none shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter dark:text-white flex items-center gap-3">
+             <Layers className="h-6 w-6 text-blue-600" /> Manage Departments
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6 pt-6">
+           <div className="flex gap-2">
+              <Input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="e.g. NON-STICK" className="h-12 rounded-xl bg-zinc-50 border-zinc-100 font-bold" />
+              <Button onClick={handleAdd} className="h-12 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold px-6">Add</Button>
+           </div>
+           <ScrollArea className="h-48 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4">
+              <div className="space-y-2">
+                 {categories.map(c => (
+                   <div key={c.id} className="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
+                      <span className="text-[10px] font-black uppercase dark:text-white">{c.name}</span>
+                      <button onClick={()=>handleDelete(c.id)} className="text-zinc-400 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                   </div>
+                 ))}
+              </div>
+           </ScrollArea>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Inventory() {
   const [search, setSearch] = useState("");
@@ -54,6 +111,7 @@ export default function Inventory() {
   const [editingMaster, setEditingMaster] = useState<any>(null);
   const [newProductName, setNewProductName] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("");
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   
   // Variant Modal
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -75,26 +133,7 @@ export default function Inventory() {
 
   const products = useLiveQuery(() => db.products.where('is_deleted').equals(0).toArray()) || [];
   const variants = useLiveQuery(() => db.variants.where('is_deleted').equals(0).toArray()) || [];
-
-  const handleExportCatalog = async () => {
-    if (variants.length === 0) return toast.error("No items to export");
-    setIsExporting(true);
-    const id = toast.loading("Generating Master Catalog...");
-    try {
-      const element = document.getElementById('catalog-export-template');
-      if (!element) throw new Error("Template missing");
-      
-      const url = await toPng(element, { pixelRatio: 2, backgroundColor: '#ffffff' });
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      pdf.addImage(url, 'PNG', 0, 0, 210, 297);
-      pdf.save(`JoyRamSteel_Catalog_${new Date().toLocaleDateString()}.pdf`);
-      toast.success("Catalog Exported", { id });
-    } catch {
-      toast.error("Export Failed", { id });
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  const categories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray()) || [];
 
   const handleOpenMasterModal = (p?: any) => {
     if (p) {
@@ -226,6 +265,26 @@ export default function Inventory() {
     }
   };
 
+  const handleExportCatalog = async () => {
+    if (variants.length === 0) return toast.error("No items to export");
+    setIsExporting(true);
+    const id = toast.loading("Generating Master Catalog...");
+    try {
+      const element = document.getElementById('catalog-export-template');
+      if (!element) throw new Error("Template missing");
+      
+      const url = await toJpeg(element, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+      pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      pdf.save(`JoyRamSteel_Catalog_${new Date().toLocaleDateString()}.pdf`);
+      toast.success("Catalog Exported", { id });
+    } catch {
+      toast.error("Export Failed", { id });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDeleteMasterProduct = async (id: string, name: string) => {
     const hasVariants = variants.some(v => v.product_id === id && v.is_deleted === 0);
     if (hasVariants) return toast.error("Delete all sizes first!");
@@ -257,6 +316,7 @@ export default function Inventory() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20 text-left px-4 md:px-0">
       <BulkImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
+      <CategoryManager isOpen={isCategoryManagerOpen} onClose={() => setIsCategoryManagerOpen(false)} />
       
       {/* Hidden Catalog Template for Export */}
       <div className="fixed -left-[9999px] top-0 pointer-events-none">
@@ -303,14 +363,26 @@ export default function Inventory() {
               {editingMaster ? "Modify Master Entry" : "New Master Entry"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-6 pt-6">
+          <div className="space-y-6 pt-6 text-left">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Brand/Product Name</Label>
               <Input value={newProductName} onChange={e=>setNewProductName(e.target.value)} placeholder="e.g. MILTON BUCKET" className="h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 font-bold" />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Category</Label>
-              <Input value={newProductCategory} onChange={e=>setNewProductCategory(e.target.value)} placeholder="e.g. KITCHENWARE" className="h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 font-bold" />
+              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Department / Category</Label>
+              <Select onValueChange={(val: string | null) => val && setNewProductCategory(val)} value={newProductCategory}>
+                <SelectTrigger className="h-14 rounded-2xl font-bold bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700">
+                  <SelectValue placeholder="Select Department..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-zinc-800 z-[6000] border-zinc-100 dark:border-zinc-700">
+                   {categories.map(c => <SelectItem key={c.id} value={c.name} className="font-bold">{c.name}</SelectItem>)}
+                   <div className="p-2 border-t border-zinc-100 dark:border-zinc-800 mt-2">
+                      <Button onClick={() => { setIsMasterModalOpen(false); setIsCategoryManagerOpen(true); }} variant="outline" className="w-full h-10 text-[9px] font-black uppercase">
+                         <Plus className="h-3 w-3 mr-2" /> Add New Department
+                      </Button>
+                   </div>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={handleSaveMasterProduct} className="w-full h-16 rounded-2xl bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white font-black uppercase tracking-widest">
               {editingMaster ? "Update Entry" : "Create Entry"}
@@ -320,13 +392,16 @@ export default function Inventory() {
       </Dialog>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
+        <div className="space-y-1 text-left">
           <h2 className="text-3xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tighter">Inventory</h2>
           <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest opacity-60">Digital Catalog Management</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setIsCategoryManagerOpen(true)} className="h-11 rounded-xl font-bold uppercase text-[9px] tracking-widest border-zinc-200 dark:border-zinc-800 dark:text-white shadow-sm flex gap-2">
+             <Settings2 className="h-4 w-4" /> Depts
+          </Button>
           <Button variant="outline" onClick={handleExportCatalog} disabled={isExporting} className="h-11 rounded-xl font-bold uppercase text-[9px] tracking-widest border-zinc-200 dark:border-zinc-800 dark:text-white flex gap-2">
-             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export Catalog
+             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Catalog
           </Button>
           <Button variant="outline" onClick={() => setIsImportOpen(true)} className="h-11 rounded-xl font-bold uppercase text-[10px] tracking-widest border-zinc-200 dark:border-zinc-800 dark:text-white shadow-sm">Import</Button>
           <Button onClick={() => handleOpenMasterModal()} className="h-11 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold uppercase text-[10px] tracking-widest px-6 shadow-xl transition-transform active:scale-95">
@@ -367,7 +442,7 @@ export default function Inventory() {
           </div>
         </Card>
 
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl p-6 bg-white dark:bg-zinc-900 border">
+        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl p-6 bg-white dark:bg-zinc-900 border text-left">
            <h4 className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Stock Health</h4>
            <div className="space-y-4">
               <div className="space-y-1">
@@ -398,7 +473,7 @@ export default function Inventory() {
               <LayoutGrid className="h-4 w-4" /> Grid
            </button>
            <button onClick={() => setViewMode('list')} className={cn("px-4 rounded-xl flex items-center gap-2 font-black text-[9px] uppercase tracking-widest transition-all", viewMode === 'list' ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-400")}>
-              <List className="h-4 w-4" /> Flat List
+              <List className="h-4 w-4" /> List
            </button>
         </div>
       </div>
@@ -447,7 +522,7 @@ export default function Inventory() {
                 </TableHeader>
                 <TableBody>
                    {filteredVariants.map(v => (
-                     <TableRow key={v.id} className="h-20 border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors group">
+                     <TableRow key={v.id} className="h-20 border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors group text-left">
                         <TableCell className="pl-8">
                            <div className="font-black text-zinc-900 dark:text-white uppercase italic text-base leading-none mb-1">{v.productName}</div>
                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{v.size} &bull; {v.barcode}</div>
@@ -455,7 +530,7 @@ export default function Inventory() {
                         <TableCell>
                            <Badge className={cn("rounded-lg font-black text-[10px]", v.stock < 5 ? "bg-red-500" : "bg-emerald-500")}>{v.stock} {v.unit.toUpperCase()}</Badge>
                         </TableCell>
-                        <TableCell className="text-right font-black text-xl tracking-tighter dark:text-white">₹{v.base_price}</TableCell>
+                        <TableCell className="text-right font-black text-xl tracking-tighter dark:text-white">₹{(v.pricing_type === 'bundle' && v.bundle_price) ? v.bundle_price : v.base_price}</TableCell>
                         <TableCell className="pr-8 text-right">
                            <div className="flex gap-2 justify-end">
                               <Button variant="ghost" size="icon" onClick={() => setSelectedBarcodeItem(v)} className="h-10 w-10 text-zinc-400"><BarcodeIcon className="h-4 w-4" /></Button>

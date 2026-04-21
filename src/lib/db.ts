@@ -124,6 +124,15 @@ export interface DigitalBill {
   version_clock: number;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  updated_at: string;
+  is_deleted: number;
+  sync_status: 'pending' | 'synced';
+  version_clock: number;
+}
+
 export interface ParkedCart {
   id: string;
   customer_name?: string;
@@ -142,10 +151,11 @@ const db = new Dexie('VyaparSyncDB') as Dexie & {
   bills: EntityTable<Bill, 'id'>;
   digital_bills: EntityTable<DigitalBill, 'id'>;
   parked_carts: EntityTable<ParkedCart, 'id'>;
+  categories: EntityTable<Category, 'id'>;
 };
 
-// V14: Added credit_limit and parent_pack_id for business safety
-db.version(14).stores({
+// V15: Added dynamic categories support
+db.version(15).stores({
   products: 'id, name, category, updated_at, is_deleted, sync_status, version_clock', 
   variants: 'id, product_id, size, barcode, updated_at, is_deleted, unit, sync_status, version_clock, parent_pack_id', 
   sales: 'id, date, sync_status, updated_at, is_deleted, version_clock, is_returned',
@@ -154,6 +164,7 @@ db.version(14).stores({
   khata_transactions: 'id, customer_id, date, sync_status, updated_at, is_deleted, version_clock',
   bills: 'id, supplier, status, updated_at, is_deleted, sync_status, version_clock',
   digital_bills: 'id, type, bill_no, customer_name, date, sync_status, updated_at, is_deleted, version_clock',
+  categories: 'id, name, updated_at, is_deleted, sync_status, version_clock',
   parked_carts: 'id, created_at'
 });
 

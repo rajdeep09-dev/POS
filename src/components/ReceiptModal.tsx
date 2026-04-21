@@ -27,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { uploadCompressedToCloudinary } from "@/lib/cloudinary";
@@ -66,9 +66,9 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
 
     try {
       // 2. Generate high-quality image
-      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const dataUrl = await toJpeg(receiptRef.current, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `receipt-${saleData.id.slice(0, 8)}.png`, { type: "image/png" });
+      const file = new File([blob], `receipt-${saleData.id.slice(0, 8)}.jpg`, { type: "image/jpeg" });
       
       // 3. Upload to Cloudinary (Primary)
       const publicUrl = await uploadCompressedToCloudinary(file);
@@ -89,9 +89,9 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
   const downloadAsImage = async () => {
     if (!receiptRef.current) return;
     try {
-      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const dataUrl = await toJpeg(receiptRef.current, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
       const link = document.createElement('a');
-      link.download = `JoyRamSteel-Bill-${saleData.id.slice(0, 8)}.png`;
+      link.download = `JoyRamSteel-Bill-${saleData.id.slice(0, 8)}.jpg`;
       link.href = dataUrl;
       link.click();
       toast.success("Bill downloaded as Image");
@@ -103,12 +103,12 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
   const downloadAsPDF = async () => {
     if (!receiptRef.current) return;
     try {
-      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' });
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const dataUrl = await toJpeg(receiptRef.current, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       pdf.save(`JoyRamSteel-Bill-${saleData.id.slice(0, 8)}.pdf`);
       toast.success("Bill downloaded as PDF");
     } catch (err) {

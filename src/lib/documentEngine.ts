@@ -1,4 +1,4 @@
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 
@@ -20,24 +20,26 @@ export const DocumentEngine = {
     toast.info("Authorising Digital Document...", { id: 'doc-gen' });
     
     try {
-      // 1. Capture at 2x density for holographic crispness
-      const url = await toPng(element, { 
-        pixelRatio: 2, 
+      // 1. Capture at 1.5x density with 0.8 quality for compression
+      const url = await toJpeg(element, { 
+        pixelRatio: 1.5, 
+        quality: 0.8,
         backgroundColor: '#ffffff',
         style: {
           visibility: 'visible',
         }
       });
 
-      // 2. Initialise A4 Canvas
+      // 2. Initialise A4 Canvas with compression
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       // 3. Inject Image
-      pdf.addImage(url, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+      pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       
       // 4. Client-side Trigger
       pdf.save(`${filename}.pdf`);

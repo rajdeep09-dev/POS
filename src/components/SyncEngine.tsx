@@ -47,7 +47,8 @@ export function SyncEngine() {
         { name: 'sales', db: db.sales },
         { name: 'sale_items', db: db.sale_items },
         { name: 'bills', db: db.bills },
-        { name: 'digital_bills', db: db.digital_bills }
+        { name: 'digital_bills', db: db.digital_bills },
+        { name: 'categories', db: db.categories }
       ];
 
       for (const table of tables) {

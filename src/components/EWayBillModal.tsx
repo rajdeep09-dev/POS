@@ -32,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductSearch } from "@/components/ProductSearch";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -139,9 +139,9 @@ export function EWayBillModal({ isOpen, onClose, viewOnlyData }: EWayBillModalPr
     const id = toast.loading("Digitizing eWay Bill...");
 
     try {
-      const dataUrl = await toPng(ewayRef.current, { pixelRatio: 2, cacheBust: true, backgroundColor: '#ffffff' });
+      const dataUrl = await toJpeg(ewayRef.current, { pixelRatio: 1.5, quality: 0.8, cacheBust: true, backgroundColor: '#ffffff' });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `eway-${details.no}.png`, { type: "image/png" });
+      const file = new File([blob], `eway-${details.no}.jpg`, { type: "image/jpeg" });
       const publicUrl = await uploadCompressedToCloudinary(file);
 
       const text = `Hello! Here is your eWay Bill from Joy Ram Steel (Ref: ${details.no}).\n\nView Bill: ${publicUrl}\n\nThank you!`;
@@ -160,12 +160,12 @@ export function EWayBillModal({ isOpen, onClose, viewOnlyData }: EWayBillModalPr
     if (!ewayRef.current) return;
     toast.info("Generating...");
     try {
-      const url = await toPng(ewayRef.current, { pixelRatio: 2, cacheBust: true, backgroundColor: '#ffffff', width: 794, height: 1123 });
+      const url = await toJpeg(ewayRef.current, { pixelRatio: 1.5, quality: 0.8, cacheBust: true, backgroundColor: '#ffffff', width: 794, height: 1123 });
       if (type === 'img') {
-        const a = document.createElement('a'); a.download = `EWayBill.png`; a.href = url; a.click();
+        const a = document.createElement('a'); a.download = `EWayBill.jpg`; a.href = url; a.click();
       } else {
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        pdf.addImage(url, 'PNG', 0, 0, 210, 297); pdf.save(`EWayBill.pdf`);
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+        pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST'); pdf.save(`EWayBill.pdf`);
       }
       await saveToHistory();
       toast.success("Success");

@@ -27,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductSearch } from "@/components/ProductSearch";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -168,12 +168,12 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
     if (!invoiceRef.current) return;
     toast.info("Generating...");
     try {
-      const url = await toPng(invoiceRef.current, { pixelRatio: 2, quality: 0.8, backgroundColor: '#ffffff' });
+      const url = await toJpeg(invoiceRef.current, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
       if (type === 'img') {
-        const a = document.createElement('a'); a.download = `JoyRam-GST.png`; a.href = url; a.click();
+        const a = document.createElement('a'); a.download = `JoyRam-GST.jpg`; a.href = url; a.click();
       } else {
-        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        pdf.addImage(url, 'JPEG', 0, 0, 210, 297); pdf.save(`JoyRam-GST.pdf`);
+        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+        pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST'); pdf.save(`JoyRam-GST.pdf`);
       }
       await saveToHistory();
       toast.success("Success");

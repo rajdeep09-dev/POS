@@ -80,7 +80,7 @@ export function ProductCard({ variant, onClick, className }: ProductCardProps) {
 
         {/* Price Badge */}
         <div className="absolute top-5 right-5 bg-zinc-900/90 backdrop-blur-xl font-black px-4 py-2 rounded-2xl text-base shadow-2xl tracking-tighter border border-white/10 text-white">
-          ₹{variant.base_price.toLocaleString()}
+          ₹{(variant.pricing_type === 'bundle' && variant.bundle_price) ? variant.bundle_price.toLocaleString() : variant.base_price.toLocaleString()}
         </div>
       </div>
 

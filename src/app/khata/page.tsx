@@ -30,7 +30,7 @@ import { v4 as uuidv4 } from "uuid";
 import imageCompression from "browser-image-compression";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import jsPDF from "jspdf";
 
 function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, onSendReminder: any, onDelete: any }) {
@@ -54,9 +54,9 @@ function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, on
       const element = document.getElementById(`ledger-${customer.id}`);
       if (!element) return;
       
-      const url = await toPng(element, { pixelRatio: 2, backgroundColor: '#ffffff' });
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      pdf.addImage(url, 'PNG', 0, 0, 210, 297);
+      const url = await toJpeg(element, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+      pdf.addImage(url, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       pdf.save(`Ledger_${customer.name.replace(/\s+/g, '_')}.pdf`);
       toast.success("Statement Downloaded");
     } catch (e) {
