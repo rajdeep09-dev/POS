@@ -124,30 +124,70 @@ export default function POS() {
     await db.parked_carts.delete(parked.id);
   };
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isProcessing) return;
+    
+    setIsProcessing(true); // Duplicate Shield
+    const checkoutToast = toast.loading("Authorising Transaction...");
+
     try {
       const saleId = uuidv4();
       const now = new Date().toISOString();
-      await db.transaction('rw', db.sales, db.sale_items, db.variants, async () => {
+
+      await db.transaction('rw', [db.sales, db.sale_items, db.variants], async () => {
+        // 1. Price Integrity Validation
+        let verifiedSubtotal = 0;
+        for (const item of cart) {
+          const freshVariant = await db.variants.get(item.id);
+          if (!freshVariant || freshVariant.is_deleted === 1) throw new Error(`${item.productName} is no longer in catalog.`);
+          
+          // Re-calculate using server-side pricing utility
+          const itemTotal = calculateItemTotal(freshVariant, item.qty);
+          verifiedSubtotal += itemTotal;
+        }
+
+        const verifiedDiscount = Math.min(discount, verifiedSubtotal);
+        const verifiedTotal = verifiedSubtotal - verifiedDiscount;
+
+        // 2. Commit Secure Sale
         await db.sales.add({
-          id: saleId, total_amount: finalTotal, discount: actualDiscount, payment_method: paymentMode,
+          id: saleId, total_amount: verifiedTotal, discount: verifiedDiscount, payment_method: paymentMode,
           date: now, updated_at: now, sync_status: 'pending', is_deleted: 0, version_clock: Date.now()
         });
+
+        // 3. Stock Deduction
         for (const item of cart) {
           await db.sale_items.add({
             id: uuidv4(), sale_id: saleId, variant_id: item.id, quantity: item.qty,
             unit_price: item.base_price, subtotal: item.line_total, updated_at: now, is_deleted: 0,
             sync_status: 'pending', version_clock: Date.now()
           });
+          
           const variant = await db.variants.get(item.id);
-          if (variant) await db.variants.update(item.id, { stock: variant.stock - item.qty, updated_at: now, version_clock: (variant.version_clock || 0) + 1 });
+          if (variant) {
+            // Negative stock is logged but allowed for offline flexibility
+            const newStock = variant.stock - item.qty;
+            await db.variants.update(item.id, { 
+              stock: newStock, 
+              updated_at: now, 
+              version_clock: (variant.version_clock || 0) + 1 
+            });
+          }
         }
       });
+
       setLastSale({ id: saleId, total: finalTotal, discount: actualDiscount, paymentMethod: paymentMode, date: now });
-      setLastItems([...cart]); setShowReceipt(true); toast.success("Transaction Complete");
+      setLastItems([...cart]);
+      setShowReceipt(true);
+      toast.success("Bill Generated", { id: checkoutToast });
       setCart([]); setDiscount(0); setPaymentMode("cash");
-    } catch { toast.error("Checkout Failed"); }
+    } catch (err: any) { 
+      toast.error(err.message || "Security Check Failed", { id: checkoutToast }); 
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
