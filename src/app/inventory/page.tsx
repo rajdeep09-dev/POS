@@ -36,6 +36,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary";
 import { generateBarcode } from "@/lib/barcode";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "@/components/ProductCard";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Inventory() {
   const [search, setSearch] = useState("");
@@ -119,12 +120,43 @@ export default function Inventory() {
     } catch { toast.error("Deployment failed"); } finally { setIsUploading(false); }
   };
 
+  const handleDeleteVariant = async (id: string) => {
+    if (!confirm("Remove this variant from stock?")) return;
+    await db.variants.update(id, { is_deleted: 1, updated_at: new Date().toISOString() });
+    toast.success("Variant removed");
+  };
+
+  const handleDeleteMasterProduct = async (id: string, name: string) => {
+    const hasVariants = variants.some(v => v.product_id === id && v.is_deleted === 0);
+    if (hasVariants) {
+      toast.error("Delete all sizes (variants) first!");
+      return;
+    }
+    if (!confirm(`Delete master entry "${name}"?`)) return;
+    await db.products.update(id, { is_deleted: 1, updated_at: new Date().toISOString() });
+    toast.success("Master Product removed");
+  };
+
   const filteredVariants = variants.map(v => ({
     ...v,
     productName: products.find(p => p.id === v.product_id)?.name || "Unknown",
     category: products.find(p => p.id === v.product_id)?.category || "General",
     parentImage: products.find(p => p.id === v.product_id)?.image_url
   })).filter(v => v.productName.toLowerCase().includes(search.toLowerCase()) || v.size.toLowerCase().includes(search.toLowerCase()));
+
+  // Simplified Pricing Helper
+  const setPricingMode = (mode: 'standard' | 'bundle' | 'weight') => {
+    if (mode === 'standard') {
+      setNewUnit('pcs');
+      setNewPricingType('standard');
+    } else if (mode === 'bundle') {
+      setNewUnit('pcs');
+      setNewPricingType('bundle');
+    } else if (mode === 'weight') {
+      setNewUnit('kg');
+      setNewPricingType('standard');
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20 text-left">
@@ -156,6 +188,24 @@ export default function Inventory() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Master Product Management (NEW) */}
+        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl p-6 bg-white dark:bg-zinc-900 overflow-hidden relative">
+           <div className="absolute top-0 right-0 p-4 opacity-5"><PackageOpen className="h-20 w-20" /></div>
+           <h4 className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Master Brands ({products.length})</h4>
+           <ScrollArea className="h-24">
+              <div className="space-y-2">
+                 {products.map(p => (
+                   <div key={p.id} className="flex justify-between items-center group">
+                      <span className="text-[10px] font-black uppercase italic">{p.name}</span>
+                      <button onClick={() => handleDeleteMasterProduct(p.id, p.name)} className="p-1.5 text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                         <Trash2 className="h-3 w-3" />
+                      </button>
+                   </div>
+                 ))}
+              </div>
+           </ScrollArea>
+        </Card>
+
         <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-2xl overflow-hidden bg-zinc-900 text-white p-6 relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16" />
           <h4 className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 relative z-10">Total Inventory Value</h4>
@@ -208,20 +258,50 @@ export default function Inventory() {
            <DialogHeader><DialogTitle>Deploy Variant</DialogTitle></DialogHeader>
            <div className="space-y-4 pt-4">
               <Select onValueChange={(val: any) => setSelectedProductId(val)} value={selectedProductId || ""}>
-                <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Master Product" /></SelectTrigger>
+                <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select Brand (Master Product)" /></SelectTrigger>
                 <SelectContent className="bg-white dark:bg-zinc-800 z-[6000]">{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
 
-              <div className="flex flex-wrap gap-2">
-                {Object.keys(PRICING_TEMPLATES).map(k => (
-                  <button key={k} onClick={()=>applyTemplate(k)} className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[8px] font-black uppercase tracking-widest">{k}</button>
-                ))}
+              {/* Simplified Pricing Selector */}
+              <div className="space-y-2">
+                 <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Pricing Mode</Label>
+                 <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'standard', label: 'Single Pcs', mode: 'standard' },
+                      { id: 'bundle', label: 'Combo Deal', mode: 'bundle' },
+                      { id: 'weight', label: 'By Weight', mode: 'weight' }
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setPricingMode(m.mode as any)}
+                        className={cn(
+                          "h-12 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all border",
+                          (newPricingType === m.id || (m.id === 'weight' && newUnit === 'kg')) 
+                            ? "bg-zinc-900 text-white border-zinc-900 shadow-lg scale-[1.02]" 
+                            : "bg-zinc-50 dark:bg-zinc-800 text-zinc-400 border-zinc-100 dark:border-zinc-700"
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                 </div>
               </div>
 
-              <Input value={newSize} onChange={e=>setNewSize(e.target.value)} placeholder="Size (e.g. 5L)" className="h-12 rounded-xl" />
+              <Input value={newSize} onChange={e=>setNewSize(e.target.value)} placeholder="Size Name (e.g. 5 Litre)" className="h-12 rounded-xl" />
               <div className="grid grid-cols-2 gap-4">
                 <Input type="number" value={newStock} onChange={e=>setNewStock(e.target.value)} placeholder="Stock" className="h-12 rounded-xl" />
-                <Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Price ₹" className="h-12 rounded-xl" />
+                {newPricingType === 'standard' ? (
+                  <Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Price ₹" className="h-12 rounded-xl" />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Loose Price (1 pc) ₹" className="h-12 rounded-xl" />
+                    <div className="grid grid-cols-2 gap-2">
+                       <Input type="number" value={newBundleQty} onChange={e=>setNewBundleQty(e.target.value)} placeholder="Combo Qty (e.g. 4)" className="h-12 rounded-xl bg-blue-50/50" />
+                       <Input type="number" value={newBundlePrice} onChange={e=>setNewBundlePrice(e.target.value)} placeholder="Combo Price ₹" className="h-12 rounded-xl bg-blue-50/50 font-bold" />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center gap-2 relative">
                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e=>setCapturedFile(e.target.files?.[0] || null)} />
