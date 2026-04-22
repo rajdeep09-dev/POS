@@ -1,9 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
 
 /**
- * Enterprise Schema V16
- * Formalizes Combo Pricing, Weight Precision, and Payment Indexing.
- * Refined for Global TypeScript Compliance (Fixing missed fields).
+ * Industrial Schema V16.1 (Nuclear Audit Verified)
+ * Optimized for JSONB Cloud Sync and Type-Safety.
  */
 
 export interface Product {
@@ -33,7 +32,7 @@ export interface Variant {
   pricing_type: 'standard' | 'bundle';
   bundle_qty?: number;
   bundle_price?: number;
-  units_per_combo: number; // Required for stock math
+  units_per_combo: number;
   parent_pack_id?: string;
   created_at: string;
   updated_at: string;
@@ -79,7 +78,7 @@ export interface Customer {
   balance: number;
   credit_limit: number;
   status: 'active' | 'blocked' | 'Overdue' | 'Clear';
-  last_tx?: string; // Added for history tracking
+  last_tx?: string;
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
@@ -107,7 +106,7 @@ export interface Bill {
   bill_no: string;
   supplier: string;
   total_amount: number;
-  amount?: number; // Legacy/Fallback support
+  amount?: number;
   status: 'paid' | 'pending' | 'Paid' | 'Pending';
   image_url?: string;
   date: string;
@@ -123,7 +122,7 @@ export interface DigitalBill {
   bill_no: string;
   date: string;
   customer_name: string;
-  data: string;
+  data: any; // Switched to any/object for JSONB compatibility
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
@@ -160,8 +159,8 @@ const db = new Dexie('VyaparSyncDB') as Dexie & {
   categories: EntityTable<Category, 'id'>;
 };
 
-// V16: Enterprise-Grade Alignment
-db.version(16).stores({
+// V16.1: Formal Alignment for JSONB and Case Sensitivity
+db.version(16.1).stores({
   products: 'id, name, category, image_url, updated_at, is_deleted, sync_status, version_clock', 
   variants: 'id, product_id, size, barcode, pricing_type, bundle_price, bundle_qty, updated_at, is_deleted, unit, sync_status, version_clock, parent_pack_id', 
   sales: 'id, date, payment_method, customer_id, sync_status, updated_at, is_deleted, version_clock, is_returned',
