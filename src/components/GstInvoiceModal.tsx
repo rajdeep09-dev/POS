@@ -70,21 +70,28 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         setShopDetails(viewOnlyData.shopDetails);
       } else if (initialItems && initialItems.length > 0) {
         const formatted = initialItems.map(item => {
-          // Rule: Prioritize bundle_price for combos
-          const isBundle = item.pricing_type === 'bundle' && item.bundle_price;
-          const rate = isBundle ? item.bundle_price : item.base_price;
-          const taxable = rate / 1.18;
+          // Rule: Intelligent Bundle Resolution
+          const isBundle = item.pricing_type === 'bundle' && item.bundle_price && item.bundle_qty;
+          
+          // If it's a bundle, the 'Rate' in GST should be the per-piece portion 
+          // so that (Rate * Qty) equals the total bundle price.
+          const effectiveRate = isBundle 
+            ? (item.bundle_price / item.bundle_qty) 
+            : item.base_price;
+
+          const taxable = effectiveRate / 1.18;
+          
           return {
-            desc: `${item.productName} - ${item.size}`.toUpperCase() + (isBundle ? " (COMBO)" : ""),
+            desc: `${item.productName} - ${item.size}`.toUpperCase() + (isBundle ? ` (PACK OF ${item.bundle_qty})` : ""),
             hsn: "7323",
             qty: item.qty.toString(),
             unit: item.unit || 'pcs',
-            finalRate: rate.toString(),
+            finalRate: effectiveRate.toFixed(2),
             gstRate: "18",
             taxableValue: parseFloat((taxable * item.qty).toFixed(2)),
-            cgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
-            sgst: parseFloat((((rate - taxable) * item.qty) / 2).toFixed(2)),
-            total: rate * item.qty
+            cgst: parseFloat((((effectiveRate - taxable) * item.qty) / 2).toFixed(2)),
+            sgst: parseFloat((((effectiveRate - taxable) * item.qty) / 2).toFixed(2)),
+            total: parseFloat((effectiveRate * item.qty).toFixed(2))
           };
         });
         setItems(formatted);
@@ -102,21 +109,27 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
   }, []);
 
   const addItem = (p?: any) => {
+    const isBundle = p?.pricing_type === 'bundle' && p?.bundle_price && p?.bundle_qty;
+    const initialQty = isBundle ? p.bundle_qty : 1;
+    const effectiveRate = isBundle ? (p.bundle_price / p.bundle_qty) : (p?.base_price || 0);
+
     const newItem = {
-      desc: p ? `${p.productName} - ${p.size}`.toUpperCase() : "",
+      desc: p ? `${p.productName} - ${p.size}`.toUpperCase() + (isBundle ? ` (PACK OF ${p.bundle_qty})` : "") : "",
       hsn: "7323",
-      qty: "1",
+      qty: initialQty.toString(),
       unit: p?.unit || 'pcs',
-      finalRate: p ? p.base_price.toString() : "",
+      finalRate: p ? effectiveRate.toFixed(2) : "",
       gstRate: "18",
       taxableValue: 0, cgst: 0, sgst: 0, total: 0
     };
+
     if (p) {
-      const taxable = p.base_price / 1.18;
-      newItem.taxableValue = parseFloat(taxable.toFixed(2));
-      newItem.cgst = parseFloat(((p.base_price - taxable) / 2).toFixed(2));
-      newItem.sgst = parseFloat(((p.base_price - taxable) / 2).toFixed(2));
-      newItem.total = p.base_price;
+      const tot = initialQty * effectiveRate;
+      const tax = tot / 1.18;
+      newItem.taxableValue = parseFloat(tax.toFixed(2));
+      newItem.cgst = parseFloat(((tot - tax) / 2).toFixed(2));
+      newItem.sgst = parseFloat(((tot - tax) / 2).toFixed(2));
+      newItem.total = tot;
     }
     setItems([...items, newItem]);
   };
