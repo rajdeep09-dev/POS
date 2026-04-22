@@ -143,7 +143,14 @@ export function Header() {
                 <DropdownMenuItem onClick={handleManualSync} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-white">
                   <DatabaseBackup className="h-4 w-4 text-emerald-600" /> {t.force}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={async () => { if(confirm("DANGER: Clear local cache?")) { await db.delete(); window.location.reload(); } }} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20">
+                <DropdownMenuItem onClick={async () => { 
+                  if(confirm("DANGER: Clear local cache and re-sync from Cloud?")) { 
+                    await db.delete(); 
+                    localStorage.removeItem('last_db_sync');
+                    localStorage.removeItem('app_lang');
+                    window.location.reload(); 
+                  } 
+                }} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20">
                   <RefreshCcw className="h-4 w-4" /> {t.clear}
                 </DropdownMenuItem>
             </DropdownMenuContent>

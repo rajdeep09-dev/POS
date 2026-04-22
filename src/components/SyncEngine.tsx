@@ -53,9 +53,10 @@ export function SyncEngine() {
 
       for (const table of tables) {
         try {
-          // 1. PULL & PURGE (Sync Shield V4.0)
+          // 1. PULL & PURGE (Sync Shield V4.1)
           let pullQuery = supabase.from(table.name).select('*');
           
+          // CRITICAL: If lastSyncTime is null (e.g. after cache clear), pullQuery gets EVERYTHING
           if (!isForce && lastSyncTime) {
             pullQuery = pullQuery.gt('updated_at', lastSyncTime);
           }
