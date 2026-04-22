@@ -2,50 +2,32 @@
 
 import { useState } from "react";
 import { 
-  FileText, UploadCloud, Search, CheckCircle2, 
-  Clock, Camera, Filter, Link as LinkIcon, 
-  Image as ImageIcon, Trash2, Plus, Eye,
-  Truck, MessageSquare, Share2, Download,
-  MoreVertical, ShieldCheck, Zap
+  Plus, Search, ShieldCheck, FileText, Download, 
+  Trash2, UploadCloud, Camera, CheckCircle2, X,
+  FileDigit, History, FileBadge, Receipt, MessageSquare,
+  Loader2, Wallet, User, Calendar
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { db, Bill } from "@/lib/db";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
-import imageCompression from 'browser-image-compression';
+import imageCompression from "browser-image-compression";
+import { supabase } from "@/lib/supabase";
 import { GstInvoiceModal } from "@/components/GstInvoiceModal";
 import { EWayBillModal } from "@/components/EWayBillModal";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion, AnimatePresence } from "framer-motion";
+import { ChevronRight, Image as ImageIcon } from "lucide-react";
 
 export default function Vault() {
-  const [search, setSearch] = useState("");
   const [newSupplier, setNewSupplier] = useState("");
   const [newAmount, setNewAmount] = useState("");
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -71,11 +53,14 @@ export default function Vault() {
         }
       } catch {}
     }
+    const billId = `B-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`;
     await db.bills.add({
-      id: `B-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+      id: billId,
+      bill_no: billId,
       supplier: newSupplier.toUpperCase(),
       date: new Date().toLocaleDateString('en-GB'),
-      amount: parseInt(newAmount),
+      total_amount: parseFloat(newAmount),
+      amount: parseFloat(newAmount),
       status: "Pending",
       image_url: url,
       updated_at: new Date().toISOString(),
@@ -83,12 +68,12 @@ export default function Vault() {
       sync_status: 'pending',
       version_clock: Date.now()
     });
-    setNewSupplier(""); setNewAmount(""); setCapturedImage(null); setIsUploading(false);
+    setNewSupplier(""); setNewAmount(""); setCapturedFile(null); setIsUploading(false);
     toast.success("Bill added to Vault");
   };
 
-  const handleShareWhatsApp = (bill: any) => {
-    const text = encodeURIComponent(`Invoice Details: ${bill.supplier} - ₹${bill.amount} (${bill.date})`);
+  const handleShareWhatsApp = (bill: Bill) => {
+    const text = encodeURIComponent(`Invoice Details: ${bill.supplier} - ₹${bill.total_amount} (${bill.date})`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -98,177 +83,123 @@ export default function Vault() {
       setViewOnlyData(data);
       if (bill.type === 'gst') setIsGstModalOpen(true);
       else setIsEwayModalOpen(true);
-    } catch {
-      toast.error("Failed to read bill data");
-    }
+    } catch { toast.error("Corrupted bill data"); }
   };
 
-  const filteredBills = bills.filter(b => b.supplier.toLowerCase().includes(search.toLowerCase()));
-  const filteredDigital = digitalBills.filter(b => b.customer_name.toLowerCase().includes(search.toLowerCase()) || b.bill_no.toLowerCase().includes(search.toLowerCase()));
-
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20 text-left">
-      {/* Modals with ViewOnly Capability */}
-      <GstInvoiceModal isOpen={isGstModalOpen} onClose={() => { setIsGstModalOpen(false); setViewOnlyData(null); }} viewOnlyData={viewOnlyData} />
-      <EWayBillModal isOpen={isEwayModalOpen} onClose={() => { setIsEwayModalOpen(false); setViewOnlyData(null); }} viewOnlyData={viewOnlyData} />
+    <div className="space-y-6 max-w-7xl mx-auto pb-24 md:pb-20 text-left px-4 md:px-0">
+      <GstInvoiceModal isOpen={isGstModalOpen} onClose={() => setIsGstModalOpen(false)} viewOnlyData={viewOnlyData} />
+      <EWayBillModal isOpen={isEwayModalOpen} onClose={() => setIsEwayModalOpen(false)} viewOnlyData={viewOnlyData} />
 
-      {/* TOP BUTTON BOX (UPGRADED) */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-zinc-50/50 p-8 rounded-[2rem] border border-zinc-100 shadow-inner">
-        <div>
-          <h2 className="text-4xl font-black text-zinc-900 uppercase italic tracking-tighter flex items-center gap-3">
-             <ShieldCheck className="h-10 w-10 text-blue-600" /> GST VAULT
-          </h2>
-          <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 opacity-60">Enterprise Archive & supplier Ledger</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-1">
+          <h2 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tighter leading-none">GST Vault</h2>
+          <p className="text-zinc-500 text-[8px] md:text-[10px] font-bold uppercase tracking-widest opacity-60">Digital Records & Bill Storage</p>
         </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => { setViewOnlyData(null); setIsGstModalOpen(true); }} className="h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest border-zinc-200 bg-white shadow-xl hover:bg-zinc-50 transition-all px-6">
-            <Plus className="mr-2 h-4 w-4" /> CREATE GST
-          </Button>
-          <Button variant="outline" onClick={() => { setViewOnlyData(null); setIsEwayModalOpen(true); }} className="h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest border-zinc-200 bg-white shadow-xl hover:bg-zinc-50 transition-all px-6">
-            <Truck className="mr-2 h-4 w-4" /> CREATE eWAY
-          </Button>
-          <Dialog onOpenChange={o => !o && setCapturedImage(null)}>
-            <DialogTrigger>
-               <div className="h-14 rounded-2xl bg-zinc-900 font-black uppercase text-[10px] tracking-widest px-8 shadow-2xl hover:bg-black transition-all text-white flex items-center justify-center cursor-pointer">
-                 <Camera className="mr-2 h-5 w-5 text-blue-400" /> SCAN PHYSICAL BILL
-               </div>
-            </DialogTrigger>
-            <DialogContent className="rounded-[2.5rem] p-8 max-w-md border-none shadow-2xl bg-white/95 backdrop-blur-3xl">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Digitize Invoice</DialogTitle>
-                <DialogDescription className="font-bold text-[10px] uppercase tracking-widest text-zinc-400">Capture supplier bills for instant storage</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 pt-6">
-                <div className="space-y-2">
-                   <Label className="font-black text-[10px] uppercase tracking-widest text-zinc-400 ml-1">Supplier Entity</Label>
-                   <Input value={newSupplier} onChange={e=>setNewSupplier(e.target.value)} placeholder="e.g. MILTON STEEL" className="h-12 rounded-xl bg-zinc-50" />
-                </div>
-                <div className="space-y-2">
-                   <Label className="font-black text-[10px] uppercase tracking-widest text-zinc-400 ml-1">Total Amount (₹)</Label>
-                   <Input type="number" value={newAmount} onChange={e=>setNewAmount(e.target.value)} placeholder="0.00" className="h-12 rounded-xl bg-zinc-50 font-bold" />
-                </div>
-                <div className="border-2 border-dashed border-zinc-200 rounded-2xl h-44 flex flex-col items-center justify-center relative bg-zinc-50 group hover:border-blue-400 transition-colors">
-                   <input type="file" accept="image/*" capture="environment" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e => {
-                     const f = e.target.files?.[0];
-                     if(f) { setCapturedImage(URL.createObjectURL(f)); setCapturedFile(f); }
-                   }} />
-                   {capturedImage ? (
-                      <div className="w-full h-full relative p-2">
-                         <img src={capturedImage} className="w-full h-full object-cover rounded-xl shadow-lg" />
-                         <div className="absolute inset-0 bg-blue-500/10 animate-pulse rounded-xl" />
-                      </div>
-                   ) : (
-                      <div className="flex flex-col items-center gap-3">
-                         <div className="p-4 bg-white rounded-full shadow-inner"><Camera className="h-8 w-8 text-zinc-300" /></div>
-                         <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Focus & Snap</span>
-                      </div>
-                   )}
-                </div>
-                <Button onClick={handleAddBill} disabled={isUploading} className="w-full h-16 rounded-2xl bg-zinc-900 font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all text-white">
-                  {isUploading ? <Zap className="h-5 w-5 animate-spin" /> : "SECURE IN VAULT"}
-                </Button>
+        <div className="flex gap-2 w-full md:w-auto">
+          <Button onClick={() => setIsGstModalOpen(true)} className="flex-1 md:flex-none h-11 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-black uppercase text-[10px] tracking-widest px-6 shadow-xl">New GST Bill</Button>
+          <Button onClick={() => setIsEwayModalOpen(true)} variant="outline" className="flex-1 md:flex-none h-11 rounded-xl font-black uppercase text-[10px] tracking-widest px-6 border-zinc-200 dark:border-zinc-800 dark:text-white">New eWay</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-[2rem] md:rounded-[2.5rem] bg-white dark:bg-zinc-900 overflow-hidden text-left border">
+            <CardHeader className="p-6 md:p-8 border-b border-zinc-50 dark:border-zinc-800">
+              <CardTitle className="text-sm font-black uppercase tracking-widest italic flex items-center gap-3 dark:text-white"><FileBadge className="h-5 w-5 text-blue-600" /> Archive External Bill</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-zinc-400 ml-1">Supplier Name</Label>
+                <Input value={newSupplier} onChange={e=>setNewSupplier(e.target.value)} placeholder="e.g. TATA STEEL" className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none font-bold shadow-inner dark:text-white" />
               </div>
-            </DialogContent>
-          </Dialog>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-zinc-400 ml-1">Bill Amount ₹</Label>
+                <Input type="number" value={newAmount} onChange={e=>setNewAmount(e.target.value)} placeholder="0.00" className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none font-black text-xl shadow-inner text-blue-600" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-zinc-400 ml-1">Bill Photo (Optional)</Label>
+                <div className="border-2 border-dashed border-zinc-100 dark:border-zinc-800 rounded-[1.5rem] md:rounded-[2rem] p-6 md:p-10 flex flex-col items-center justify-center gap-3 relative bg-zinc-50/50 dark:bg-zinc-950/50 group hover:border-blue-200 transition-all overflow-hidden cursor-pointer">
+                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={e=>setCapturedFile(e.target.files?.[0] || null)} />
+                  {capturedFile ? (
+                    <div className="relative w-full aspect-video"><img src={URL.createObjectURL(capturedFile)} className="w-full h-full object-cover rounded-xl" /></div>
+                  ) : (
+                    <><Camera className="h-8 md:h-10 w-8 md:w-10 text-zinc-300 group-hover:text-blue-500 transition-colors" /><p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Upload Invoice Image</p></>
+                  )}
+                </div>
+              </div>
+              <Button onClick={handleAddBill} disabled={isUploading} className="w-full h-16 md:h-20 rounded-[1.5rem] md:rounded-[2.5rem] bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-black uppercase tracking-[0.2em] text-xs shadow-2xl active:scale-95 transition-all">
+                {isUploading ? <Loader2 className="h-6 w-6 animate-spin" /> : "Authorise Storage"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl rounded-[2rem] md:rounded-[2.5rem] bg-white dark:bg-zinc-900 overflow-hidden text-left border">
+            <CardHeader className="p-6 md:p-8 border-b border-zinc-50 dark:border-zinc-800">
+              <div className="flex justify-between items-center">
+                 <CardTitle className="text-sm font-black uppercase tracking-widest italic flex items-center gap-3 dark:text-white"><History className="h-5 w-5 text-emerald-600" /> Vault Archives</CardTitle>
+                 <Badge className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-none font-black text-[9px] uppercase px-3">{bills.length + digitalBills.length} RECORDS</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+               <div className="overflow-x-auto">
+                 <Table>
+                    <TableHeader className="bg-zinc-50 dark:bg-zinc-950/50">
+                       <TableRow className="border-none h-12 md:h-14">
+                          <TableHead className="pl-6 md:pl-8 font-black uppercase text-[8px] md:text-[9px] tracking-widest text-zinc-400">Bill Entry</TableHead>
+                          <TableHead className="font-black uppercase text-[8px] md:text-[9px] tracking-widest text-zinc-400">Category</TableHead>
+                          <TableHead className="font-black uppercase text-[8px] md:text-[9px] tracking-widest text-zinc-400 text-right pr-6 md:pr-8 whitespace-nowrap">Valuation</TableHead>
+                       </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                       {/* Digital Bills Section */}
+                       {digitalBills.map(bill => (
+                         <TableRow key={bill.id} onClick={() => openDigitalBill(bill)} className="border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50/50 cursor-pointer transition-colors h-16 md:h-20 group">
+                            <TableCell className="pl-6 md:pl-8">
+                               <div className="font-black text-zinc-900 dark:text-white uppercase italic text-sm md:text-base leading-none mb-1 group-hover:text-blue-600">{bill.customer_name}</div>
+                               <div className="text-[8px] md:text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2"><Calendar className="h-3 w-3" /> {new Date(bill.date).toLocaleDateString('en-GB')}</div>
+                            </TableCell>
+                            <TableCell>
+                               <Badge className={cn("rounded-lg font-black text-[8px] md:text-[9px] uppercase", bill.type === 'gst' ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600")}>{bill.type === 'gst' ? 'Tax Invoice' : 'eWay Bill'}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-6 md:pr-8">
+                               <div className="flex items-center justify-end gap-2 text-zinc-400 opacity-0 group-hover:opacity-100 transition-all"><FileText className="h-4 w-4" /><ChevronRight className="h-4 w-4" /></div>
+                            </TableCell>
+                         </TableRow>
+                       ))}
+
+                       {/* Physical/Manual Bills */}
+                       {bills.map(bill => (
+                         <TableRow key={bill.id} className="border-zinc-50 dark:border-zinc-800 hover:bg-zinc-50/50 transition-colors h-16 md:h-20">
+                            <TableCell className="pl-6 md:pl-8">
+                               <div className="font-black text-zinc-900 dark:text-white uppercase italic text-sm md:text-base leading-none mb-1">{bill.supplier}</div>
+                               <div className="text-[8px] md:text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2"><Calendar className="h-3 w-3" /> {bill.date}</div>
+                            </TableCell>
+                            <TableCell>
+                               <Badge className={cn("rounded-lg font-black text-[8px] md:text-[9px] uppercase", bill.status === 'Paid' || bill.status === 'paid' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600")}>{bill.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-6 md:pr-8">
+                               <div className="font-black text-base md:text-xl tracking-tighter dark:text-white mb-1">₹{bill.total_amount.toLocaleString()}</div>
+                               <div className="flex gap-2 justify-end">
+                                  {bill.image_url && <Button variant="ghost" size="icon" onClick={()=>window.open(bill.image_url, '_blank')} className="h-8 w-8 text-blue-500"><ImageIcon className="h-4 w-4" /></Button>}
+                                  <Button variant="ghost" size="icon" onClick={()=>handleShareWhatsApp(bill)} className="h-8 w-8 text-emerald-500"><MessageSquare className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={async () => { if(confirm("Purge?")) await db.bills.update(bill.id, { is_deleted: 1 }); }} className="h-8 w-8 text-red-400"><Trash2 className="h-4 w-4" /></Button>
+                               </div>
+                            </TableCell>
+                         </TableRow>
+                       ))}
+                       {bills.length === 0 && digitalBills.length === 0 && (
+                         <TableRow><TableCell colSpan={3} className="h-64 text-center opacity-20 font-black uppercase text-[10px] tracking-[0.2em]">Vault Empty</TableCell></TableRow>
+                       )}
+                    </TableBody>
+                 </Table>
+               </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* SEARCH AREA */}
-      <div className="relative group">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-zinc-900 transition-colors" />
-        <Input 
-           placeholder="Search suppliers, bill numbers, or dates..." 
-           className="pl-14 h-16 rounded-2xl bg-white border-zinc-200 shadow-xl font-bold tracking-tight text-lg" 
-           value={search} 
-           onChange={e=>setSearch(e.target.value)} 
-        />
-      </div>
-
-      <Tabs defaultValue="scanned">
-        <TabsList className="bg-zinc-100 p-1 rounded-2xl mb-8 h-14">
-          <TabsTrigger value="scanned" className="rounded-xl px-10 h-full font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">Scanned Supplier Bills</TabsTrigger>
-          <TabsTrigger value="digital" className="rounded-xl px-10 h-full font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">Generated Digital Documents</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="scanned">
-          <Card className="border-zinc-200 shadow-2xl rounded-3xl overflow-hidden bg-white">
-            <Table>
-              <TableHeader className="bg-zinc-50 border-b border-zinc-100">
-                <TableRow className="h-16">
-                  <TableHead className="pl-10 font-black uppercase text-[10px] tracking-widest">Supplier</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest">Date</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-right">Value</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] tracking-widest text-center">Status</TableHead>
-                  <TableHead className="pr-10 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBills.map(bill => (
-                  <TableRow key={bill.id} className="h-20 hover:bg-zinc-50/50 transition-colors group border-zinc-50">
-                    <TableCell className="pl-10 font-black uppercase italic tracking-tight text-lg text-zinc-900">{bill.supplier}</TableCell>
-                    <TableCell className="font-bold text-zinc-400 text-xs">{bill.date}</TableCell>
-                    <TableCell className="text-right font-black text-xl tracking-tighter">₹{bill.amount.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">
-                       <Badge variant={bill.status === 'Paid' ? 'default' : 'outline'} className={cn("rounded-lg px-3 py-1 font-black text-[9px] uppercase tracking-widest", bill.status === 'Pending' ? "text-amber-600 border-amber-200" : "bg-zinc-900")}>
-                          {bill.status}
-                       </Badge>
-                    </TableCell>
-                    <TableCell className="pr-10 text-right">
-                       <div className="flex gap-2 justify-end">
-                          <DropdownMenu>
-                             <DropdownMenuTrigger>
-                                <div className="h-10 w-10 rounded-xl hover:bg-zinc-100 transition-all flex items-center justify-center cursor-pointer">
-                                  <MoreVertical className="h-4 w-4" />
-                                </div>
-                             </DropdownMenuTrigger>
-                             <DropdownMenuContent className="rounded-2xl bg-white border-zinc-100 shadow-2xl p-2 font-black text-[10px] uppercase">
-                                <DropdownMenuItem className="rounded-xl flex gap-3 h-10 px-4" onClick={() => bill.image_url && window.open(bill.image_url, '_blank')}><Eye className="h-4 w-4" /> View Scan</DropdownMenuItem>
-                                <DropdownMenuItem className="rounded-xl flex gap-3 h-10 px-4" onClick={() => handleShareWhatsApp(bill)}><MessageSquare className="h-4 w-4 text-emerald-500" /> Share</DropdownMenuItem>
-                                {bill.status === 'Pending' && <DropdownMenuItem className="rounded-xl flex gap-3 h-10 px-4 text-emerald-600" onClick={async () => { await db.bills.update(bill.id, { status: "Paid" }); toast.success("Marked as Paid"); }}><CheckCircle2 className="h-4 w-4" /> Mark Paid</DropdownMenuItem>}
-                                <DropdownMenuItem className="rounded-xl flex gap-3 h-10 px-4 text-red-500 hover:bg-red-50" onClick={async () => { if(confirm("Delete?")) await db.bills.update(bill.id, { is_deleted: 1 }); }}><Trash2 className="h-4 w-4" /> Delete</DropdownMenuItem>
-                             </DropdownMenuContent>
-                          </DropdownMenu>
-                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredBills.length === 0 && (
-                   <TableRow><TableCell colSpan={5} className="py-20 text-center text-zinc-300 font-black uppercase tracking-widest text-xs italic">No matching scanned bills</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="digital">
-           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDigital.map(bill => (
-                <Card key={bill.id} className="p-8 border-zinc-200 shadow-xl rounded-3xl bg-white group hover:shadow-2xl transition-all border border-white/40">
-                   <div className="flex justify-between items-start mb-6">
-                      <Badge className={cn("rounded-xl px-4 py-1.5 font-black text-[8px] uppercase tracking-[0.2em] border-none shadow-lg shadow-blue-500/20", bill.type === 'gst' ? "bg-blue-600" : "bg-emerald-600")}>{bill.type === 'gst' ? "GST INVOICE" : "eWAY BILL"}</Badge>
-                      <span className="text-[10px] font-black text-zinc-400 uppercase">{new Date(bill.date).toLocaleDateString()}</span>
-                   </div>
-                   <h4 className="font-black uppercase italic text-2xl tracking-tighter mb-1 text-zinc-900 group-hover:text-blue-600 transition-colors">{bill.customer_name}</h4>
-                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-8 flex items-center gap-2">
-                      <div className="h-1 w-1 rounded-full bg-zinc-400" /> REF: {bill.bill_no || "PRO-ORDER"}
-                   </p>
-                   <div className="flex gap-3">
-                      <Button onClick={() => openDigitalBill(bill)} className="flex-1 bg-zinc-900 hover:bg-black text-white rounded-2xl h-14 font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all">
-                        <Eye className="mr-2 h-4 w-4" /> PREVIEW
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-zinc-200 hover:bg-red-50 text-zinc-300 hover:text-red-500 transition-all" onClick={async ()=>{ if(confirm("Purge document?")) await db.digital_bills.update(bill.id, { is_deleted: 1 }); }}>
-                         <Trash2 className="h-5 w-5" />
-                      </Button>
-                   </div>
-                </Card>
-              ))}
-              {filteredDigital.length === 0 && (
-                <div className="col-span-full py-20 text-center text-zinc-300 font-black uppercase tracking-widest text-xs italic bg-zinc-50/50 rounded-3xl border-2 border-dashed border-zinc-100">No generated documents archived</div>
-              )}
-           </div>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

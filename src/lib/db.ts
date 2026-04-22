@@ -1,11 +1,16 @@
 import Dexie, { type EntityTable } from 'dexie';
 
+/**
+ * Enterprise Schema V16
+ * Formalizes Combo Pricing, Weight Precision, and Payment Indexing.
+ * Refined for Global TypeScript Compliance (Fixing missed fields).
+ */
+
 export interface Product {
   id: string;
   name: string;
   category: string;
   image_url?: string;
-  gst_rate?: number;
   created_at: string;
   updated_at: string;
   is_deleted: number;
@@ -21,14 +26,14 @@ export interface Variant {
   stock: number;
   dented_stock: number;
   cost_price: number;
-  base_price: number;
   msp: number;
+  base_price: number;
   barcode?: string;
   image_url?: string;
   pricing_type: 'standard' | 'bundle';
   bundle_qty?: number;
   bundle_price?: number;
-  units_per_combo?: number;
+  units_per_combo: number; // Required for stock math
   parent_pack_id?: string;
   created_at: string;
   updated_at: string;
@@ -41,18 +46,15 @@ export interface Sale {
   id: string;
   total_amount: number;
   discount: number;
-  payment_method: 'cash' | 'upi' | 'khata' | 'split';
-  split_cash?: number;
-  split_upi?: number;
-  split_khata?: number;
+  payment_method: string;
   customer_id?: string;
   date: string;
-  updated_at: string;
-  sync_status: 'pending' | 'synced';
-  is_deleted: number;
-  version_clock: number;
-  is_returned?: number; // 0 = active, 1 = returned
+  is_returned?: number;
   return_date?: string;
+  updated_at: string;
+  is_deleted: number;
+  sync_status: 'pending' | 'synced';
+  version_clock: number;
 }
 
 export interface SaleItem {
@@ -62,21 +64,22 @@ export interface SaleItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  is_returned?: number;
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
   version_clock: number;
-  is_returned?: number;
 }
 
 export interface Customer {
   id: string;
   name: string;
   phone: string;
+  address?: string;
   balance: number;
   credit_limit: number;
-  last_tx: string;
-  status: 'Overdue' | 'Recent' | 'Clear';
+  status: 'active' | 'blocked' | 'Overdue' | 'Clear';
+  last_tx?: string; // Added for history tracking
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
@@ -86,25 +89,28 @@ export interface Customer {
 export interface KhataTransaction {
   id: string;
   customer_id: string;
+  type: 'credit' | 'payment' | 'payment_received';
   amount: number;
-  type: 'payment_received' | 'credit_given';
-  payment_method: 'cash' | 'upi' | 'bank_transfer' | 'other';
-  date: string;
+  payment_method?: string;
   proof_image_url?: string;
+  note?: string;
   notes?: string;
-  sync_status: 'pending' | 'synced';
+  date: string;
   updated_at: string;
   is_deleted: number;
+  sync_status: 'pending' | 'synced';
   version_clock: number;
 }
 
 export interface Bill {
   id: string;
+  bill_no: string;
   supplier: string;
-  date: string;
-  amount: number;
-  status: 'Paid' | 'Pending';
+  total_amount: number;
+  amount?: number; // Legacy/Fallback support
+  status: 'paid' | 'pending' | 'Paid' | 'Pending';
   image_url?: string;
+  date: string;
   updated_at: string;
   is_deleted: number;
   sync_status: 'pending' | 'synced';
@@ -154,11 +160,11 @@ const db = new Dexie('VyaparSyncDB') as Dexie & {
   categories: EntityTable<Category, 'id'>;
 };
 
-// V15: Added dynamic categories support
-db.version(15).stores({
-  products: 'id, name, category, updated_at, is_deleted, sync_status, version_clock', 
-  variants: 'id, product_id, size, barcode, updated_at, is_deleted, unit, sync_status, version_clock, parent_pack_id', 
-  sales: 'id, date, sync_status, updated_at, is_deleted, version_clock, is_returned',
+// V16: Enterprise-Grade Alignment
+db.version(16).stores({
+  products: 'id, name, category, image_url, updated_at, is_deleted, sync_status, version_clock', 
+  variants: 'id, product_id, size, barcode, pricing_type, bundle_price, bundle_qty, updated_at, is_deleted, unit, sync_status, version_clock, parent_pack_id', 
+  sales: 'id, date, payment_method, customer_id, sync_status, updated_at, is_deleted, version_clock, is_returned',
   sale_items: 'id, sale_id, variant_id, updated_at, is_deleted, sync_status, version_clock, is_returned',
   customers: 'id, name, phone, status, updated_at, is_deleted, sync_status, version_clock, credit_limit',
   khata_transactions: 'id, customer_id, date, sync_status, updated_at, is_deleted, version_clock',
@@ -170,22 +176,7 @@ db.version(15).stores({
 
 db.on('versionchange', function() {
   db.close();
-  if (typeof window !== 'undefined') window.location.reload();
+  window.location.reload();
 });
-
-export const seedDatabase = async () => {
-  try {
-    const productsCount = await db.products.count();
-    if (productsCount === 0) {
-      console.log("Fresh database detected.");
-    }
-  } catch (err) {
-    console.error("Dexie seeding failed:", err);
-  }
-};
-
-if (typeof window !== 'undefined') {
-  seedDatabase();
-}
 
 export { db };
