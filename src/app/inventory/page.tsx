@@ -363,10 +363,28 @@ export default function Inventory() {
           </div>
           <div className="grid grid-cols-3 gap-6">
             {filteredVariants.map(v => (
-              <div key={v.id} className="border border-zinc-100 p-4 rounded-xl flex flex-col items-center gap-3 text-left">
-                 <div className="h-24 w-24 bg-zinc-50 rounded-lg flex items-center justify-center overflow-hidden border border-zinc-100"><img src={v.image_url || v.parentImage || '/joyramlogo.png'} className="w-full h-full object-cover mix-blend-multiply" /></div>
-                 <div className="text-center"><p className="font-black text-[10px] uppercase truncate w-40 leading-none mb-1">{v.productName}</p><p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">{v.size}</p><p className="text-lg font-black tracking-tighter mt-1 italic">₹{(v.pricing_type === 'bundle' && v.bundle_price) ? v.bundle_price : v.base_price}</p></div>
-                 <div className="scale-[0.6] origin-top h-14 overflow-hidden"><Barcode value={v.barcode || "000"} width={1} height={40} fontSize={10} background="transparent" /></div>
+              <div key={v.id} className="border-2 border-zinc-200 p-6 rounded-2xl flex flex-col items-center gap-4 text-left bg-white shadow-sm">
+                 <div className="h-32 w-32 bg-zinc-50 rounded-xl flex items-center justify-center overflow-hidden border border-zinc-100">
+                    <img src={v.image_url || v.parentImage || '/joyramlogo.png'} className="w-full h-full object-cover" />
+                 </div>
+                 <div className="text-center w-full">
+                    <p className="font-black text-[12px] uppercase truncate leading-none mb-1 text-zinc-900">{v.productName}</p>
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.2em]">{v.size}</p>
+                    <p className="text-xl font-black tracking-tighter mt-2 italic text-blue-600 font-mono">₹{(v.pricing_type === 'bundle' && v.bundle_price) ? v.bundle_price : v.base_price}</p>
+                 </div>
+                 <div className="bg-white p-2 rounded-lg border border-zinc-100 w-full flex flex-col items-center">
+                    <Barcode 
+                      value={v.barcode || "000"} 
+                      width={1.5} 
+                      height={50} 
+                      fontSize={12} 
+                      fontOptions="bold"
+                      background="#ffffff"
+                      lineColor="#000000"
+                      margin={0}
+                      displayValue={true}
+                    />
+                 </div>
               </div>
             ))}
           </div>
