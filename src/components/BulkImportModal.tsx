@@ -10,12 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UploadCloud, CheckCircle2, AlertTriangle, Loader2, FileSpreadsheet, PackageOpen } from "lucide-react";
+import { UploadCloud, CheckCircle2, AlertTriangle, Loader2, FileSpreadsheet, PackageOpen, Layers, Box, Boxes } from "lucide-react";
 import { db } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import { generateBarcode } from "@/lib/barcode";
+import { cn } from "@/lib/utils";
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -43,12 +43,16 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
           const obj: any = {};
           const currentline = lines[i].split(',');
           headers.forEach((header, s) => {
-            obj[header] = currentline[s]?.trim();
+            let val = currentline[s]?.trim();
+            // Map common aliases
+            if (header === 'department') header = 'category';
+            if (header === 'mrp') header = 'base_price';
+            obj[header] = val;
           });
           result.push(obj);
         }
         setPreviewData(result);
-        toast.success(`Parsed ${result.length} items from CSV`);
+        toast.success(`Analysis Complete: ${result.length} items parsed`);
       } catch {
         toast.error("Failed to parse CSV file");
       }
@@ -59,19 +63,33 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
   const handleImport = async () => {
     if (previewData.length === 0) return;
     setIsProcessing(true);
-    const id = toast.loading("Deploying bulk catalog...");
+    const id = toast.loading("Deploying Master Catalog...");
 
     try {
       const now = new Date().toISOString();
-      await db.transaction('rw', [db.products, db.variants], async () => {
+      await db.transaction('rw', [db.products, db.variants, db.categories], async () => {
         for (const p of previewData) {
           const productId = uuidv4();
           
-          // 1. Create Master Product
+          // 1. Ensure Department exists
+          const deptName = (p.category || "GENERAL").toUpperCase();
+          const existingDept = await db.categories.where('name').equals(deptName).first();
+          if (!existingDept) {
+            await db.categories.add({
+              id: uuidv4(),
+              name: deptName,
+              updated_at: now,
+              is_deleted: 0,
+              sync_status: 'pending',
+              version_clock: Date.now()
+            });
+          }
+
+          // 2. Create Master Product
           await db.products.add({
             id: productId,
             name: (p.name || "UNNAMED").toUpperCase(),
-            category: (p.category || "GENERAL").toUpperCase(),
+            category: deptName,
             image_url: p.image_url || "",
             created_at: now,
             updated_at: now,
@@ -80,11 +98,11 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             version_clock: Date.now()
           });
 
-          // 2. Determine Pricing Logic
-          const isBundle = p.bundle_qty && p.bundle_price;
-          const pricingType = isBundle ? 'bundle' : 'standard';
+          // 3. Logic: Is it a Combo?
+          const isCombo = p.is_combo?.toLowerCase() === 'yes';
+          const pricingType = isCombo ? 'bundle' : 'standard';
 
-          // 3. Create Variant
+          // 4. Create Variant
           await db.variants.add({
             id: uuidv4(),
             product_id: productId,
@@ -92,14 +110,14 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             unit: (p.unit || "pcs").toLowerCase() as any,
             stock: parseInt(p.qty || "0"),
             dented_stock: 0,
-            cost_price: parseFloat(p.msp || p.mrp || "0"),
-            msp: parseFloat(p.msp || p.mrp || "0"),
-            base_price: parseFloat(p.mrp || "0"),
+            cost_price: parseFloat(p.msp || p.base_price || "0"),
+            msp: parseFloat(p.msp || p.base_price || "0"),
+            base_price: parseFloat(p.base_price || "0"),
             barcode: p.barcode || generateBarcode(),
             image_url: p.image_url || undefined,
             pricing_type: pricingType,
-            bundle_qty: isBundle ? parseInt(p.bundle_qty) : undefined,
-            bundle_price: isBundle ? parseFloat(p.bundle_price) : undefined,
+            bundle_qty: isCombo ? parseInt(p.units_in_pack || "1") : undefined,
+            bundle_price: isCombo ? parseFloat(p.bundle_price || "0") : undefined,
             units_per_combo: parseInt(p.units_in_pack || "1"),
             created_at: now,
             updated_at: now,
@@ -109,12 +127,12 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
           });
         }
       });
-      toast.success(`${previewData.length} Items Deployed Successfully`, { id });
+      toast.success("All Items Deployed Successfully", { id });
       setPreviewData([]);
       onClose();
     } catch (e) {
       console.error(e);
-      toast.error("Bulk Deployment Failed", { id });
+      toast.error("Deployment Failed", { id });
     } finally {
       setIsProcessing(false);
     }
@@ -122,53 +140,76 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] rounded-[2.5rem] bg-white dark:bg-zinc-900 border-none shadow-2xl overflow-hidden p-0">
+      <DialogContent className="sm:max-w-[850px] rounded-[2.5rem] bg-white dark:bg-zinc-900 border-none shadow-2xl overflow-hidden p-0">
         <div className="p-10 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
           <DialogHeader>
-            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3 dark:text-white">
-               <FileSpreadsheet className="h-8 w-8 text-emerald-600" /> Bulk Import Pro V2
+            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3 dark:text-white text-left">
+               <FileSpreadsheet className="h-8 w-8 text-blue-600" /> Enterprise Bulk Importer
             </DialogTitle>
           </DialogHeader>
         </div>
 
         <div className="p-10 space-y-8">
           {previewData.length === 0 ? (
-            <div className="border-4 border-dashed border-zinc-100 dark:border-zinc-800 rounded-[2.5rem] py-24 flex flex-col items-center justify-center gap-6 relative group transition-all hover:border-blue-400 dark:hover:border-blue-900 bg-zinc-50/30 dark:bg-zinc-950/20">
+            <div className="border-4 border-dashed border-zinc-100 dark:border-zinc-800 rounded-[2.5rem] py-20 flex flex-col items-center justify-center gap-6 relative group transition-all hover:border-blue-400 bg-zinc-50/30 dark:bg-zinc-950/20 text-center">
                <input type="file" accept=".csv" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handleFileUpload} />
-               <div className="p-8 bg-white dark:bg-zinc-900 rounded-full shadow-xl border border-zinc-50 dark:border-zinc-800"><UploadCloud className="h-16 w-16 text-zinc-300 group-hover:text-blue-500 transition-colors animate-pulse" /></div>
-               <div className="text-center space-y-3 px-10">
-                  <p className="font-black uppercase text-sm tracking-[0.2em] text-zinc-400">Deploy Enterprise CSV Catalog</p>
-                  <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-relaxed">
-                    Required Columns: <span className="text-blue-600">name, category, size, unit, qty, mrp</span><br/>
-                    Optional: <span className="text-emerald-600">msp, barcode, image_url, bundle_qty, bundle_price, units_in_pack</span>
+               <div className="p-8 bg-white dark:bg-zinc-900 rounded-full shadow-xl border border-zinc-50 dark:border-zinc-800"><UploadCloud className="h-12 w-12 text-zinc-300 group-hover:text-blue-500 transition-colors animate-pulse" /></div>
+               <div className="space-y-4 px-10">
+                  <p className="font-black uppercase text-sm tracking-[0.2em] text-zinc-400">Import Enterprise CSV</p>
+                  <div className="grid grid-cols-2 gap-4 text-[9px] font-bold uppercase tracking-widest text-zinc-400 leading-loose">
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                      <span className="text-blue-600">Core Columns</span><br/>
+                      name, department, size, unit, qty, mrp
+                    </div>
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                      <span className="text-emerald-600">Combo Columns</span><br/>
+                      is_combo (yes/no), units_in_pack, bundle_price
+                    </div>
                   </div>
                </div>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-8 text-left">
                <div className="flex justify-between items-center px-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 italic">Pre-Deployment Analysis</span>
-                  <Badge className="bg-emerald-500 text-white border-none px-4 py-1 rounded-lg font-black">{previewData.length} ITEMS READY</Badge>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Pre-Import Analysis</span>
+                  </div>
+                  <Badge className="bg-blue-600 text-white border-none px-4 py-1.5 rounded-xl font-black">{previewData.length} SKUS ANALYSED</Badge>
                </div>
-               <ScrollArea className="h-80 rounded-[2rem] border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-6">
+               <ScrollArea className="h-[45vh] rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-6">
                   <div className="space-y-3">
-                     {previewData.map((item, i) => (
-                       <div key={i} className="flex justify-between items-center p-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-50 dark:border-zinc-800 group hover:border-blue-200 transition-all">
-                          <div className="flex items-center gap-4">
-                             <div className="h-10 w-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
-                                {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <PackageOpen className="h-5 w-5 text-zinc-300" />}
-                             </div>
-                             <div className="text-left">
-                                <p className="font-black text-xs uppercase italic truncate w-48 dark:text-white">{item.name}</p>
-                                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">{item.size} &bull; {item.category}</p>
-                             </div>
-                          </div>
-                          <div className="text-right">
-                             <p className="font-black text-xs text-blue-600">₹{item.mrp}</p>
-                             {item.bundle_price && <p className="text-[8px] font-black text-emerald-500 uppercase">Combo: ₹{item.bundle_price}</p>}
-                          </div>
-                       </div>
-                     ))}
+                     {previewData.map((item, i) => {
+                       const isCombo = item.is_combo?.toLowerCase() === 'yes';
+                       return (
+                        <div key={i} className="flex justify-between items-center p-5 bg-white dark:bg-zinc-900 rounded-[1.5rem] shadow-sm border border-zinc-50 dark:border-zinc-800 group hover:shadow-md transition-all">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-100 dark:border-zinc-800">
+                                {item.image_url ? <img src={item.image_url} className="w-full h-full object-cover" /> : <PackageOpen className="h-6 w-6 text-zinc-300" />}
+                              </div>
+                              <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-black text-sm uppercase italic dark:text-white">{item.name}</p>
+                                    <Badge className={cn("text-[8px] font-black uppercase tracking-widest border-none", isCombo ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600")}>
+                                      {isCombo ? "Combo" : "Standard"}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
+                                    <Layers className="h-3 w-3" /> {item.category || item.department || "General"} &bull; {item.size}
+                                  </div>
+                              </div>
+                            </div>
+                            <div className="text-right space-y-1">
+                                <p className="font-black text-sm dark:text-white">₹{item.mrp || item.base_price}</p>
+                                {isCombo && (
+                                  <div className="flex flex-col items-end">
+                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Pack: ₹{item.bundle_price}</p>
+                                    <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Qty: {item.units_in_pack} units</p>
+                                  </div>
+                                )}
+                            </div>
+                        </div>
+                       );
+                     })}
                   </div>
                </ScrollArea>
                <div className="flex gap-4">
