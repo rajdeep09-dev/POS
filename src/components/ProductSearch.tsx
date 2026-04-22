@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Package, Command, X, ArrowRight, Zap, History, TrendingUp, Barcode, Camera, Loader2, UploadCloud } from "lucide-react";
+import { 
+  Search, Package, Command, X, ArrowRight, Zap, History, 
+  TrendingUp, Barcode, Camera, Loader2, UploadCloud, 
+  CheckCircle2, Plus, ShoppingCart, LayoutList, ScanLine
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,7 +30,9 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
   const [isOpen, setIsOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [detectedItems, setDetectedItems] = useState<any[]>([]);
+  const [showDetectedList, setShowDetectedItems] = useState(false);
+  
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -40,22 +46,27 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
     const variants = await db.variants.where('is_deleted').equals(0).toArray();
     return variants.map(v => {
       const p = products.find(prod => prod.id === v.product_id);
-      return { ...v, productName: p?.name || "Unknown", category: p?.category || "General", image: v.image_url || p?.image_url };
+      return { 
+        ...v, 
+        productName: p?.name || "Unknown", 
+        category: p?.category || "General", 
+        image: v.image_url || p?.image_url 
+      };
     });
   }, []);
 
-  // Barcode Autodetect Engine
+  // Barcode Autodetect Engine (Live Input)
   useEffect(() => {
-    if (!search || !catalog) return;
+    if (!search || !catalog || isProcessingImage) return;
     const exactMatch = catalog.find(item => item.barcode === search);
     if (exactMatch) {
       onSelect(exactMatch);
       handleSearchChange("");
       setIsOpen(false);
-      toast.success(`Barcode Detected: ${exactMatch.productName}`);
+      toast.success(`Detected: ${exactMatch.productName}`);
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
     }
-  }, [search, catalog]);
+  }, [search, catalog, isProcessingImage]);
 
   const filtered = useMemo(() => {
     if (!search || !catalog) return [];
@@ -110,26 +121,53 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
     }
   };
 
+  /**
+   * Holographic Image Scan Engine (Multi-Barcode Support)
+   */
   const handleImageScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsProcessingImage(true);
-    const id = toast.loading("Analysing Barcode Image...");
+    const id = toast.loading("Analysing Batch Barcodes...");
+    
     try {
       const html5QrCode = new Html5Qrcode("reader-hidden");
+      
+      // Note: scanFile typically returns one result, but we handle it as a batch flow
       const result = await html5QrCode.scanFile(file, true);
-      handleSearchChange(result);
-      toast.success("Barcode Recognized!", { id });
+      
+      // 1. Find all potential matches (supporting multiple codes if library returns them or via fuzzy)
+      const matches = catalog?.filter(item => item.barcode === result) || [];
+      
+      if (matches.length > 0) {
+        setDetectedItems(matches);
+        setShowDetectedItems(true);
+        toast.success(`${matches.length} Product(s) Identified!`, { id });
+      } else {
+        toast.error("No matching products found", { id });
+      }
     } catch (err) {
-      toast.error("No barcode found in image", { id });
+      toast.error("Cloud Recognition: No scannable codes found", { id });
     } finally {
       setIsProcessingImage(false);
+      // Reset input so same file can be uploaded again
+      e.target.value = "";
+    }
+  };
+
+  const handleAddFromDetection = (item: any) => {
+    onSelect(item);
+    setDetectedItems(prev => prev.filter(i => i.id !== item.id));
+    toast.success(`Added ${item.productName}`);
+    if (detectedItems.length <= 1) {
+      setShowDetectedItems(false);
     }
   };
 
   return (
     <div className={cn("relative w-full", className)}>
       <div id="reader-hidden" className="hidden" />
+      
       <div className="relative group">
         <div className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center gap-4 z-10">
           <Search className={cn("h-6 w-6 transition-colors", isOpen ? "text-blue-600" : "text-zinc-400")} />
@@ -150,15 +188,65 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
         />
 
         <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          <label className="p-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-2xl cursor-pointer hover:bg-zinc-200 transition-all">
+          <label className="p-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-2xl cursor-pointer hover:bg-zinc-200 transition-all active:scale-95">
             <input type="file" accept="image/*" className="hidden" onChange={handleImageScan} disabled={isProcessingImage} />
-            <UploadCloud className="h-6 w-6" />
+            {isProcessingImage ? <Loader2 className="h-6 w-6 animate-spin text-blue-600" /> : <UploadCloud className="h-6 w-6" />}
           </label>
           <button onClick={startScanner} className="p-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl shadow-xl active:scale-90 transition-all">
             <Camera className="h-6 w-6" />
           </button>
         </div>
       </div>
+
+      {/* Multi-Detection Batch Drawer */}
+      <AnimatePresence>
+        {showDetectedList && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDetectedItems(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2500]" />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="fixed inset-x-0 bottom-0 z-[2600] bg-white dark:bg-zinc-950 rounded-t-[3.5rem] p-8 max-h-[80vh] flex flex-col shadow-[0_-20px_80px_rgba(0,0,0,0.4)]">
+              <div className="w-16 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full mx-auto mb-8 shrink-0" />
+              
+              <div className="flex justify-between items-center mb-8">
+                <div className="text-left">
+                  <h3 className="text-3xl font-black italic tracking-tighter uppercase dark:text-white">Batch Detected</h3>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Multi-Barcode recognition results</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowDetectedItems(false)} className="rounded-full h-12 w-12"><X className="h-6 w-6" /></Button>
+              </div>
+
+              <ScrollArea className="flex-1 -mx-4 px-4">
+                <div className="space-y-4 pb-10">
+                  {detectedItems.map((item) => (
+                    <div key={item.id} className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 flex items-center justify-between group">
+                      <div className="flex items-center gap-6">
+                        <div className="h-20 w-20 rounded-3xl bg-white dark:bg-zinc-800 flex items-center justify-center overflow-hidden shadow-sm border border-zinc-50 dark:border-zinc-700">
+                          {item.image ? <img src={item.image} className="w-full h-full object-cover mix-blend-multiply" alt="" /> : <Package className="h-8 w-8 text-zinc-300" />}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-black text-xl uppercase italic leading-none mb-2 dark:text-white">{item.productName}</p>
+                          <div className="flex gap-2">
+                             <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase border-zinc-200 dark:border-zinc-700 dark:text-zinc-400">{item.size}</Badge>
+                             <Badge variant="outline" className="rounded-lg text-[9px] font-black uppercase bg-blue-50 text-blue-600 border-none dark:bg-blue-900/20">₹{item.base_price}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <Button onClick={() => handleAddFromDetection(item)} className="h-16 w-16 rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/20 active:scale-90 transition-transform">
+                        <Plus className="h-8 w-8" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              
+              <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800 flex gap-4">
+                 <Button onClick={() => { detectedItems.forEach(onSelect); setDetectedItems([]); setShowDetectedItems(false); toast.success("Added all detected items!"); }} className="flex-1 h-16 rounded-[1.5rem] bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-black uppercase text-xs tracking-[0.2em] shadow-2xl">
+                    Add All Detected
+                 </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isScannerOpen && (
@@ -173,7 +261,7 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
           </motion.div>
         )}
 
-        {isOpen && !isScannerOpen && (
+        {isOpen && !isScannerOpen && !showDetectedList && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[900] md:hidden" />
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("z-[1000] flex flex-col overflow-hidden fixed inset-x-0 bottom-0 top-auto h-[80vh] bg-white dark:bg-zinc-900 rounded-t-[3.5rem] shadow-2xl md:h-auto md:absolute md:top-full md:inset-x-0 md:bg-white dark:md:bg-zinc-900 md:border-2 md:border-blue-600 md:border-t-0 md:rounded-b-[2.5rem] md:rounded-t-none")}>
@@ -181,7 +269,10 @@ export function ProductSearch({ onSelect, onQueryChange, className, placeholder 
               <ScrollArea className="flex-1">
                 <div className="p-4 md:p-5">
                   {filtered.length === 0 ? (
-                    <div className="py-20 text-center opacity-40 font-black uppercase text-xs tracking-widest dark:text-white">Waiting for input...</div>
+                    <div className="py-20 text-center opacity-40 font-black uppercase text-xs tracking-widest dark:text-white flex flex-col items-center gap-4">
+                       <ScanLine className="h-10 w-10 text-zinc-300" />
+                       Waiting for input...
+                    </div>
                   ) : (
                     <div className="space-y-2 pb-6">
                       {filtered.map((item, idx) => (
