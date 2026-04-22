@@ -16,7 +16,8 @@ import {
   X,
   Layout,
   Settings2,
-  Save
+  Save,
+  Loader2
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -34,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { v4 as uuidv4 } from "uuid";
+import { cn } from "@/lib/utils";
 
 interface GstInvoiceModalProps {
   isOpen: boolean;
@@ -70,17 +72,10 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
         setShopDetails(viewOnlyData.shopDetails);
       } else if (initialItems && initialItems.length > 0) {
         const formatted = initialItems.map(item => {
-          // Intelligent Bundle Resolution
+          // Rule: Force Combo Alignment
           const isBundle = item.pricing_type === 'bundle' && item.bundle_price && item.bundle_qty;
-          
-          // Force Qty to bundle_qty for combos, otherwise use original qty
           const effectiveQty = isBundle ? item.bundle_qty : item.qty;
-          
-          // Calculate per-unit rate to ensure (Rate * Qty) == Bundle Total
-          const effectiveRate = isBundle 
-            ? (item.bundle_price / item.bundle_qty) 
-            : item.base_price;
-
+          const effectiveRate = isBundle ? (item.bundle_price / item.bundle_qty) : item.base_price;
           const taxable = effectiveRate / 1.18;
           const totalLine = effectiveRate * effectiveQty;
           
@@ -149,7 +144,7 @@ export function GstInvoiceModal({ isOpen, onClose, initialItems, initialReceiver
       newItems[index].taxableValue = parseFloat(tax.toFixed(2));
       newItems[index].cgst = parseFloat(((tot - tax) / 2).toFixed(2));
       newItems[index].sgst = parseFloat(((tot - tax) / 2).toFixed(2));
-      newItems[index].total = tot;
+      newItems[index].total = parseFloat(tot.toFixed(2));
     }
     setItems(newItems);
   };
@@ -283,7 +278,9 @@ function FormContent({ receiver, setReceiver, invoiceDetails, setInvoiceDetails,
         <div className="flex justify-between items-center px-1">
           <Label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Inventory List</Label>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="link" className="h-auto p-0 text-[10px] font-black text-blue-600 uppercase flex items-center gap-1"><Layout className="h-3 w-3" /> Quick Dropdown</Button>} />
+            <DropdownMenuTrigger>
+              <div className="h-auto p-0 text-[10px] font-black text-blue-600 uppercase flex items-center gap-1 cursor-pointer hover:underline"><Layout className="h-3 w-3" /> Quick Dropdown</div>
+            </DropdownMenuTrigger>
             <DropdownMenuContent className="max-h-[400px] overflow-y-auto rounded-[2rem] p-3 min-w-[300px] shadow-2xl border-zinc-100 bg-white z-[6000] flex flex-col gap-1">
               {catalog?.map((p: any) => (
                 <DropdownMenuItem key={p.id} onClick={() => addItem(p)} className="rounded-2xl h-14 font-black text-xs flex justify-between cursor-pointer px-4">{p.productName} ({p.size}) <span className="text-emerald-600">₹{p.base_price}</span></DropdownMenuItem>
@@ -315,7 +312,9 @@ function FormContent({ receiver, setReceiver, invoiceDetails, setInvoiceDetails,
       <div className="mt-auto grid grid-cols-2 gap-4 pb-10">
         <Button onClick={()=>window.print()} variant="outline" className="h-20 rounded-[1.5rem] border-2 border-zinc-100 font-black tracking-widest text-[10px] uppercase shadow-sm"><Printer className="h-6 w-6 mr-3 text-zinc-400" /> Print</Button>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button className="h-20 rounded-[1.5rem] bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl uppercase"><Download className="h-6 w-6 mr-3 text-zinc-400" /> Export</Button>} />
+          <DropdownMenuTrigger>
+            <div className="h-20 rounded-[1.5rem] bg-zinc-900 text-white font-black tracking-widest text-[10px] shadow-2xl uppercase flex items-center justify-center cursor-pointer hover:bg-zinc-800 transition-colors px-6"><Download className="h-6 w-6 mr-3 text-zinc-400" /> Export</div>
+          </DropdownMenuTrigger>
           <DropdownMenuContent className="rounded-[1.5rem] p-3 shadow-2xl min-w-[220px] bg-white/95 backdrop-blur-3xl z-[6000] flex flex-col gap-1">
              <DropdownMenuItem onClick={()=>exportDoc('img')} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase cursor-pointer hover:bg-zinc-50"><ImageIcon className="h-6 w-6 text-blue-600" /> Image</DropdownMenuItem>
              <DropdownMenuItem onClick={()=>exportDoc('pdf')} className="rounded-xl h-16 flex gap-4 font-black text-[10px] uppercase cursor-pointer hover:bg-zinc-50"><FileText className="h-6 w-6 text-red-600" /> PDF</DropdownMenuItem>
