@@ -551,12 +551,60 @@ export default function Inventory() {
               <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">{newUnit === 'kg' ? "Stock (KG)" : "Opening Stock"}</Label><Input type="number" step={newUnit === 'kg' ? "0.001" : "1"} value={newStock} onChange={e=>setNewStock(e.target.value)} placeholder="0" className="h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 font-bold dark:text-white" /></div>
                 <div className="space-y-2">
                    {newUnit === 'kg' ? (
-                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-1">
-                        <Label className="text-[8px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Price/KG</Label>
-                        <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-blue-600 text-xs">₹</span><Input type="number" step="0.01" value={newPrice} onChange={e=>setNewPrice(e.target.value)} className="h-10 pl-7 rounded-xl bg-white dark:bg-zinc-900 border-none font-black text-sm text-blue-600 shadow-inner" /></div>
+                     <div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 ml-1">
+                            Price per KG ₹
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-blue-600">₹</span>
+                            <Input 
+                              type="number" 
+                              step="0.01"
+                              value={newPrice} 
+                              onChange={e=>setNewPrice(e.target.value)} 
+                              placeholder="Retail Price/KG" 
+                              className="h-14 pl-10 rounded-xl bg-white dark:bg-zinc-900 border-none font-black text-xl text-blue-600 shadow-inner" 
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2 border-t border-blue-100 dark:border-blue-800 pt-3">
+                          <Label className="text-[8px] font-black uppercase tracking-widest text-zinc-400 ml-1">
+                            Minimum Selling Price (MSP)/KG ₹
+                          </Label>
+                          <Input 
+                            type="number" 
+                            step="0.01"
+                            value={newMsp} 
+                            onChange={e=>setNewMsp(e.target.value)} 
+                            placeholder="Lowest allowed Price/KG" 
+                            className="h-10 rounded-lg bg-white/50 dark:bg-zinc-800 border-none font-bold text-sm shadow-inner dark:text-white" 
+                          />
+                        </div>
                      </div>
                    ) : (
-                     <>{newPricingType === 'standard' ? (<><Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Retail Price ₹</Label><Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="₹" className="h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 font-black text-blue-600 dark:text-blue-400" /></>) : (<><Label className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Combo Total ₹</Label><div className="flex flex-col gap-2"><Input type="number" value={newBundlePrice} onChange={e=>setNewBundlePrice(e.target.value)} placeholder="Total Price ₹" className="h-14 rounded-2xl bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 font-black text-blue-600 dark:text-blue-400 shadow-inner" /><Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Loose Price ₹" className="h-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 text-xs dark:text-white" /></div></>)}</>
+                     <>
+                       {newPricingType === 'standard' ? (
+                         <div className="space-y-3">
+                           <div className="space-y-1">
+                             <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Retail Price ₹</Label>
+                             <Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Retail Price" className="h-14 rounded-2xl bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 font-black text-xl text-blue-600 dark:text-blue-400" />
+                           </div>
+                           <div className="space-y-1">
+                             <Label className="text-[9px] font-black uppercase tracking-widest text-zinc-400 ml-1">Min Selling Price (MSP) ₹</Label>
+                             <Input type="number" value={newMsp} onChange={e=>setNewMsp(e.target.value)} placeholder="Lowest allowed Price" className="h-11 rounded-xl bg-zinc-100 dark:bg-zinc-700/50 border-none font-bold text-zinc-500 dark:text-zinc-300 shadow-inner" />
+                           </div>
+                         </div>
+                       ) : (
+                         <>
+                           <Label className="text-[10px] font-black uppercase tracking-widest text-blue-600 ml-1">Combo Total ₹</Label>
+                           <div className="flex flex-col gap-2">
+                              <Input type="number" value={newBundlePrice} onChange={e=>setNewBundlePrice(e.target.value)} placeholder="Total Price ₹" className="h-14 rounded-2xl bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900 font-black text-blue-600 dark:text-blue-400 shadow-inner" />
+                              <Input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="Loose Price ₹" className="h-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 text-xs dark:text-white" />
+                           </div>
+                         </>
+                       )}
+                     </>
                    )}
                 </div>
               </div>
