@@ -117,7 +117,9 @@ export function AIChatBot() {
             updated_at: now,
             is_deleted: 0,
             sync_status: 'pending',
-            version_clock: Date.now()
+            version_clock: Date.now(),
+            tenant_id: 'default',
+            tax_rate: 0
           });
         }
 
@@ -149,7 +151,9 @@ export function AIChatBot() {
               updated_at: now,
               is_deleted: 0,
               sync_status: 'pending',
-              version_clock: Date.now()
+              version_clock: Date.now(),
+              tenant_id: 'default',
+              low_stock_threshold: 5
             });
           }
         }

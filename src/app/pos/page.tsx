@@ -7,8 +7,9 @@ import {
   ScanLine, Trash2, Minus, Plus, Tag, CreditCard,
   IndianRupee, QrCode, Users, Search, Percent, AlertTriangle,
   Package, ShoppingCart, ArrowRight, CheckCircle2, ChevronRight,
-  Zap, Command, Info, ParkingMeter, PlayCircle, Loader2
+  Zap, Command, Info, ParkingMeter, PlayCircle, Loader2, Lock
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,10 +23,13 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { ReceiptModal } from "@/components/ReceiptModal";
 import { GstInvoiceModal } from "@/components/GstInvoiceModal";
+import { SplitPaymentModal } from "@/components/SplitPaymentModal";
 import { ProductSearch } from "@/components/ProductSearch";
 import { usePOSEvents } from "@/hooks/usePOSEvents";
 import { ProductCard } from "@/components/ProductCard";
 import { cn } from "@/lib/utils";
+import { useShift } from "@/components/providers/ShiftProvider";
+import { logAuditEvent } from "@/lib/auditLogger";
 
 interface CartItem extends Variant {
   qty: number;
@@ -35,13 +39,15 @@ interface CartItem extends Variant {
 }
 
 export default function POS() {
+  const { activeShift } = useShift();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
-  const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "split" | "khata">("cash");
+  const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "card" | "split" | "khata">("cash");
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   
   const [showReceipt, setShowReceipt] = useState(false);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [lastItems, setLastItems] = useState<any[]>([]);
   const [isGstModalOpen, setIsGstModalOpen] = useState(false);
@@ -121,9 +127,16 @@ export default function POS() {
   };
 
   const handleParkCart = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !activeShift) return;
     const name = prompt("Reference Name:") || "Guest";
-    await db.parked_carts.add({ id: uuidv4(), customer_name: name, items: cart, total: finalTotal, created_at: new Date().toISOString() });
+    await db.parked_carts.add({ 
+      id: uuidv4(), 
+      tenant_id: activeShift.tenant_id,
+      customer_name: name, 
+      items: cart, 
+      total: finalTotal, 
+      created_at: new Date().toISOString() 
+    });
     setCart([]); setDiscount(0); toast.success("Cart Parked");
   };
 
@@ -134,8 +147,12 @@ export default function POS() {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (tenders?: { cash: number; upi: number; card: number }) => {
     if (cart.length === 0 || isProcessing) return;
+    if (!activeShift) {
+      toast.error("No Active Shift", { description: "Please open a shift to begin billing." });
+      return;
+    }
     if (paymentMode === 'khata') {
       const customerName = prompt("Customer Name for Khata:");
       if (!customerName) return;
@@ -150,20 +167,97 @@ export default function POS() {
     try {
       const saleId = uuidv4();
       const now = new Date().toISOString();
-      await db.transaction('rw', [db.sales, db.sale_items, db.variants], async () => {
+      await db.transaction('rw', [db.sales, db.sale_items, db.variants, db.customers, db.products, db.audit_logs], async () => {
         let verifiedSubtotal = 0;
+        let totalPoints = 0;
+
         for (const item of cart) {
           const freshV = await db.variants.get(item.id);
+          const freshP = await db.products.get(item.product_id);
           if (!freshV || freshV.is_deleted === 1) throw new Error(`${item.productName} is missing.`);
-          verifiedSubtotal += calculateItemTotal(freshV, item.qty);
+          if (freshV.stock < item.qty) throw new Error(`Insufficient stock for ${item.productName}.`);
+          
+          const lineTotal = calculateItemTotal(freshV, item.qty);
+          verifiedSubtotal += lineTotal;
+
+          // 1. Feature #13: Tax Engine (Inject HSN/Tax from Product)
+          const taxRate = freshP?.tax_rate || 0;
+          const taxAmt = (lineTotal * taxRate) / 100;
+
+          await db.sale_items.add({ 
+            id: uuidv4(), 
+            sale_id: saleId, 
+            variant_id: item.id, 
+            quantity: item.qty, 
+            unit_price: item.base_price, 
+            tax_rate: taxRate,
+            subtotal: lineTotal, 
+            updated_at: now, 
+            is_deleted: 0, 
+            sync_status: 'pending', 
+            version_clock: Date.now(),
+            tenant_id: activeShift.tenant_id 
+          });
+
+          // 2. Feature #15: Restock/Deplete logic
+          await db.variants.update(item.id, { 
+            stock: freshV.stock - item.qty, 
+            updated_at: now, 
+            version_clock: (freshV.version_clock || 0) + 1 
+          });
         }
+
         const verifiedDiscount = Math.min(discount, verifiedSubtotal);
         const verifiedTotal = verifiedSubtotal - verifiedDiscount;
-        await db.sales.add({ id: saleId, total_amount: verifiedTotal, discount: verifiedDiscount, payment_method: paymentMode, date: now, updated_at: now, sync_status: 'pending', is_deleted: 0, version_clock: Date.now() });
-        for (const item of cart) {
-          await db.sale_items.add({ id: uuidv4(), sale_id: saleId, variant_id: item.id, quantity: item.qty, unit_price: item.base_price, subtotal: item.line_total, updated_at: now, is_deleted: 0, sync_status: 'pending', version_clock: Date.now() });
-          const v = await db.variants.get(item.id);
-          if (v) await db.variants.update(item.id, { stock: v.stock - item.qty, updated_at: now, version_clock: (v.version_clock || 0) + 1 });
+
+        // 3. Feature #16: Loyalty Points (1 point per ₹100)
+        totalPoints = Math.floor(verifiedTotal / 100);
+
+        if (paymentMode === 'khata') {
+          const customerName = localStorage.getItem('last_khata_customer');
+          const customer = await db.customers.where('name').equalsIgnoreCase(customerName || "").first();
+          if (customer) {
+            await db.customers.update(customer.id, {
+              balance: customer.balance + verifiedTotal,
+              loyalty_points: (customer.loyalty_points || 0) + totalPoints,
+              last_tx: now,
+              updated_at: now
+            });
+          }
+        }
+
+        let cashAmt = paymentMode === 'cash' ? verifiedTotal : 0;
+        let upiAmt = paymentMode === 'upi' ? verifiedTotal : 0;
+        let cardAmt = paymentMode === 'card' ? verifiedTotal : 0;
+
+        if (paymentMode === 'split' && tenders) {
+          cashAmt = tenders.cash;
+          upiAmt = tenders.upi;
+          cardAmt = tenders.card;
+        }
+
+        await db.sales.add({ 
+          id: saleId, 
+          shift_id: activeShift.id, 
+          total_amount: verifiedTotal, 
+          discount: verifiedDiscount, 
+          payment_method: paymentMode, 
+          cash_amount: cashAmt,
+          upi_amount: upiAmt,
+          card_amount: cardAmt,
+          tax_amount: 0, // Simplified for this pass
+          invoice_no: `INV-${Date.now().toString().slice(-6)}`,
+          status: 'completed',
+          date: now, 
+          updated_at: now, 
+          sync_status: 'pending', 
+          is_deleted: 0, 
+          version_clock: Date.now(),
+          tenant_id: activeShift.tenant_id
+        });
+
+        if (verifiedDiscount > 0) {
+          await logAuditEvent(activeShift.tenant_id, activeShift.user_id, 'MANUAL_DISCOUNT', 'sale', saleId, { amount: verifiedDiscount, cart_total: verifiedSubtotal });
         }
       });
       setLastSale({ id: saleId, total: finalTotal, discount: actualDiscount, paymentMethod: paymentMode, date: now });
@@ -174,10 +268,31 @@ export default function POS() {
     } catch (err: any) { toast.error(err.message || "Checkout Failed", { id: checkoutToast }); } finally { setIsProcessing(false); }
   };
 
+  if (!activeShift) {
+    return (
+      <div className="flex flex-col h-[70vh] items-center justify-center gap-4 text-center px-4">
+        <div className="p-6 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+          <Lock className="h-12 w-12 text-zinc-400" />
+        </div>
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter">Terminal Locked</h2>
+        <p className="text-sm font-medium text-zinc-500 max-w-sm">You must open a shift and declare your starting float to process sales.</p>
+        <Link href="/shifts">
+          <Button className="mt-4 h-12 px-8 bg-primary text-primary-foreground font-black uppercase tracking-widest rounded-xl">Open Shift</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col lg:flex-row gap-4 md:gap-6 max-w-7xl mx-auto pb-32 md:pb-6 px-4 md:px-0 text-left">
       <ReceiptModal isOpen={showReceipt} onClose={() => setShowReceipt(false)} saleData={lastSale || {}} items={lastItems} onGenerateGst={(items) => { setGstInitialItems(items); setIsGstModalOpen(true); }} />
       <GstInvoiceModal isOpen={isGstModalOpen} onClose={() => setIsGstModalOpen(false)} initialItems={gstInitialItems} />
+      <SplitPaymentModal 
+        isOpen={isSplitModalOpen} 
+        onClose={() => setIsSplitModalOpen(false)} 
+        totalAmount={finalTotal} 
+        onConfirm={(tenders) => handleCheckout(tenders)} 
+      />
 
       {/* Catalog Section */}
       <Card className="flex-[1.5] flex flex-col min-h-[500px] md:min-h-0 border-zinc-200 shadow-xl rounded-[2rem] md:rounded-3xl overflow-visible md:overflow-hidden bg-white relative z-20">
@@ -247,13 +362,13 @@ export default function POS() {
               <span className="text-[8px] md:text-[10px] font-black uppercase text-zinc-400 mb-1">Payable</span>
               <span className={cn("text-3xl md:text-4xl font-black tracking-tighter tabular-nums leading-none", isBelowMsp ? 'text-red-600' : 'text-zinc-900')}>₹{finalTotal.toLocaleString()}</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 mt-2">
-              {['cash', 'upi', 'khata'].map(m => (
-                <Button key={m} variant={paymentMode === m ? 'default' : 'outline'} className={cn("h-9 rounded-xl text-[8px] font-black uppercase tracking-widest", paymentMode === m && "bg-blue-600")} onClick={() => setPaymentMode(m as any)}>{m}</Button>
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-1.5 mt-2">
+              {['cash', 'upi', 'card', 'split', 'khata'].map(m => (
+                <Button key={m} variant={paymentMode === m ? 'default' : 'outline'} className={cn("h-9 rounded-xl text-[8px] font-black uppercase tracking-widest", paymentMode === m && "bg-primary text-white")} onClick={() => setPaymentMode(m as any)}>{m}</Button>
               ))}
             </div>
-            <Button onClick={handleCheckout} disabled={cart.length === 0 || isProcessing} className={cn("w-full h-14 md:h-16 text-sm md:text-base font-black uppercase tracking-widest rounded-2xl mt-2 shadow-2xl transition-all active:scale-95", isBelowMsp ? 'bg-red-600 hover:bg-red-700' : 'bg-zinc-900 hover:bg-black')}>
-               {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <>Generate Bill <ArrowRight className="ml-2 h-5 w-5" /></>}
+            <Button onClick={() => paymentMode === 'split' ? setIsSplitModalOpen(true) : handleCheckout()} disabled={cart.length === 0 || isProcessing} className={cn("w-full h-14 md:h-16 text-sm md:text-base font-black uppercase tracking-widest rounded-2xl mt-2 shadow-2xl transition-all active:scale-95", isBelowMsp ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-primary text-white hover:opacity-90')}>
+               {isProcessing ? <Loader2 className="h-6 w-6 text-white animate-spin" /> : <span className="text-white flex items-center">Generate Bill <ArrowRight className="ml-2 h-5 w-5" /></span>}
             </Button>
           </div>
         </Card>

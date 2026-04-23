@@ -65,6 +65,7 @@ function CategoryManager({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
     await db.categories.add({
       id: uuidv4(),
       name: newName.toUpperCase(),
+      tenant_id: 'default_tenant',
       updated_at: now,
       is_deleted: 0,
       sync_status: 'pending',
@@ -183,8 +184,16 @@ export default function Inventory() {
       toast.success("Master Record Updated");
     } else {
       await db.products.add({ 
-        id: uuidv4(), name: newProductName.toUpperCase(), category: newProductCategory.toUpperCase(), 
-        created_at: now, updated_at: now, is_deleted: 0, sync_status: 'pending', version_clock: Date.now() 
+        id: uuidv4(), 
+        name: newProductName.toUpperCase(), 
+        category: newProductCategory.toUpperCase(), 
+        tenant_id: 'default_tenant',
+        tax_rate: 0,
+        created_at: now, 
+        updated_at: now, 
+        is_deleted: 0, 
+        sync_status: 'pending', 
+        version_clock: Date.now() 
       });
       toast.success("New Product Brand Added");
     }
@@ -234,10 +243,12 @@ export default function Inventory() {
       }
       const now = new Date().toISOString();
       const payload: any = {
+        tenant_id: 'default_tenant',
         product_id: selectedProductId,
         size: newSize.toUpperCase(),
         unit: newUnit as any,
         stock: parseFloat(newStock),
+        low_stock_threshold: 5,
         dented_stock: 0,
         cost_price: parseFloat(newMsp || newPrice), 
         msp: parseFloat(newMsp || newPrice), 

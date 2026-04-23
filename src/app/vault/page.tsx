@@ -58,6 +58,7 @@ export default function Vault() {
       id: billId,
       bill_no: billId,
       supplier: newSupplier.toUpperCase(),
+      tenant_id: 'default_tenant',
       date: new Date().toLocaleDateString('en-GB'),
       total_amount: parseFloat(newAmount),
       amount: parseFloat(newAmount),

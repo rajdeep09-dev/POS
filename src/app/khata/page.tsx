@@ -101,6 +101,7 @@ function CustomerRow({ customer, onSendReminder, onDelete }: { customer: any, on
       await db.transaction('rw', db.customers, db.khata_transactions, async () => {
         await db.khata_transactions.add({
           id: txId,
+          tenant_id: 'default_tenant',
           customer_id: customer.id,
           amount: amount,
           type: 'payment_received',
@@ -449,6 +450,8 @@ export default function Khata() {
         name: newName,
         phone: newPhone,
         balance,
+        tenant_id: 'default_tenant',
+        loyalty_points: 0,
         credit_limit: 50000, // New default limit
         last_tx: "Just added",
         status: balance > 0 ? "Overdue" : "Clear",

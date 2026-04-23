@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown, DatabaseBackup, AlertCircle, Zap, ShieldCheck, Moon, Sun, Languages, BookOpen, Smartphone, Barcode, HardDrive, Undo2, Tag, Info } from "lucide-react";
+import { Bell, WifiOff, Cloud, Loader2, Clock, RefreshCcw, ChevronDown, DatabaseBackup, AlertCircle, Zap, ShieldCheck, Moon, Sun, Languages, BookOpen, Smartphone, Barcode, HardDrive, Undo2, Tag, Info, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,10 +14,13 @@ import {
 import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useTenant } from "@/components/providers/TenantProvider";
 
 export function Header() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const { tenant } = useTenant();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<'en' | 'bn'>('en');
   const [isOnline, setIsOnline] = useState(true);
@@ -79,6 +82,22 @@ export function Header() {
 
   const t = translations[lang];
 
+  const handleLogout = async () => {
+    if (confirm("Logout from current store? Local offline cache will be securely wiped.")) {
+      try {
+        await db.delete();
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('last_db_sync')) localStorage.removeItem(key);
+        });
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+      } catch (err) {
+        console.error("Logout error:", err);
+        toast.error("Logout failed.");
+      }
+    }
+  };
+
   let displayTitle = t.title;
   if (pathname === "/pos") displayTitle = t.pos;
   else if (pathname === "/inventory") displayTitle = t.inv;
@@ -125,9 +144,9 @@ export function Header() {
                 <div className="flex flex-col items-end gap-1.5 mr-1 md:mr-2 cursor-pointer group">
                     {isOnline && (
                       <div className={`flex items-center gap-2 px-2 md:px-3 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-all
-                        ${syncState === 'syncing' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/40' : 
+                        ${syncState === 'syncing' ? 'bg-primary/5 text-primary border-primary/20' : 
                           syncState === 'error' ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/40' : 
-                          'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100/50 dark:border-emerald-900/40 group-hover:bg-emerald-100'}`}>
+                          'bg-primary/5 text-primary border-primary/10 group-hover:bg-primary/10'}`}>
                         {syncState === 'syncing' ? <Loader2 className="h-3 w-3 animate-spin" /> : syncState === 'error' ? <AlertCircle className="h-3 w-3" /> : <Cloud className="h-3 w-3" />}
                         <span className="hidden sm:inline">{syncState === 'syncing' ? t.syncing : syncState === 'error' ? t.error : t.synced}</span>
                         <ChevronDown className="h-2 w-2 ml-1 opacity-40" />
@@ -150,19 +169,22 @@ export function Header() {
                     localStorage.removeItem('app_lang');
                     window.location.reload(); 
                   } 
-                }} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20">
+                }} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-orange-500 cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20">
                   <RefreshCcw className="h-4 w-4" /> {t.clear}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="rounded-xl h-11 flex gap-3 font-black text-[10px] uppercase tracking-widest text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <LogOut className="h-4 w-4" /> Logout
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
 
         <Button onClick={() => router.push('/docs')} variant="ghost" size="icon" className="relative bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-2xl border border-zinc-100 dark:border-zinc-700 h-10 w-10 md:h-12 md:w-12 shadow-inner shrink-0">
-          <BookOpen className="h-5 w-5 text-blue-600" />
-          <span className="absolute top-3 right-3 h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-blue-500 border-2 border-white dark:border-zinc-950 animate-pulse" />
+          <BookOpen className="h-5 w-5 text-primary" />
+          <span className="absolute top-3 right-3 h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-primary border-2 border-white dark:border-zinc-950 animate-pulse" />
         </Button>
 
-        <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden border-2 border-white dark:border-zinc-800 ring-4 ring-zinc-50 dark:ring-zinc-900 shadow-2xl shrink-0">
-          <img src="/joyramlogo.png" alt="Logo" className="h-full w-full object-cover" />
+        <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden border-2 border-white dark:border-zinc-800 ring-4 ring-primary/10 shadow-2xl shrink-0">
+          <img src={tenant?.logo_url || "/joyramlogo.png"} alt="Logo" className="h-full w-full object-cover" />
         </div>
       </div>
     </header>

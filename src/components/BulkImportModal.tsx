@@ -97,7 +97,8 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
               updated_at: now,
               is_deleted: 0,
               sync_status: 'pending',
-              version_clock: Date.now()
+              version_clock: Date.now(),
+              tenant_id: 'default'
             });
           }
 
@@ -111,7 +112,9 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             updated_at: now,
             is_deleted: 0,
             sync_status: 'pending',
-            version_clock: Date.now()
+            version_clock: Date.now(),
+            tenant_id: 'default',
+            tax_rate: 0
           });
 
           // 3. Logic: Is it a Combo?
@@ -129,17 +132,19 @@ export function BulkImportModal({ isOpen, onClose }: BulkImportModalProps) {
             cost_price: parseFloat(p.msp || p.base_price || "0"),
             msp: parseFloat(p.msp || p.base_price || "0"),
             base_price: parseFloat(p.base_price || "0"),
-            barcode: p.barcode || generateBarcode(),
-            image_url: p.image_url || undefined,
+            barcode: p.barcode || undefined,
+            image_url: p.image_url || "",
             pricing_type: pricingType,
-            bundle_qty: isCombo ? parseInt(p.units_in_pack || "1") : undefined,
+            bundle_qty: isCombo ? parseInt(p.bundle_qty || "0") : undefined,
             bundle_price: isCombo ? parseFloat(p.bundle_price || "0") : undefined,
-            units_per_combo: parseInt(p.units_in_pack || "1"),
+            units_per_combo: isCombo ? parseInt(p.bundle_qty || "1") : 1,
             created_at: now,
             updated_at: now,
             is_deleted: 0,
             sync_status: 'pending',
-            version_clock: Date.now()
+            version_clock: Date.now(),
+            tenant_id: 'default',
+            low_stock_threshold: 5
           });
         }
       });

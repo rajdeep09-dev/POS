@@ -4,17 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { db } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useTenant } from "@/components/providers/TenantProvider";
 
-/**
- * Enterprise Sync Engine (Version 4.0 - Self Healing)
- * Optimized for Deletion Integrity & Crash Resistance.
- */
 export function SyncEngine() {
   const isSyncing = useRef(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const { tenant } = useTenant();
 
   useEffect(() => {
-    const saved = localStorage.getItem('last_db_sync');
+    if (!tenant?.id) return;
+
+    const saved = localStorage.getItem(`last_db_sync_${tenant.id}`);
     if (saved) setLastSyncTime(saved);
 
     const syncInterval = setInterval(async () => {
@@ -29,10 +29,10 @@ export function SyncEngine() {
       clearInterval(syncInterval);
       window.removeEventListener('request-sync', handleManualSync);
     };
-  }, []);
+  }, [tenant?.id]);
 
   const performSync = async (isForce = false) => {
-    if (isSyncing.current) return;
+    if (isSyncing.current || !tenant?.id) return;
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder')) return;
 
     isSyncing.current = true;
@@ -48,15 +48,21 @@ export function SyncEngine() {
         { name: 'sale_items', db: db.sale_items },
         { name: 'bills', db: db.bills },
         { name: 'digital_bills', db: db.digital_bills },
-        { name: 'categories', db: db.categories }
+        { name: 'categories', db: db.categories },
+        { name: 'shifts', db: db.shifts },
+        { name: 'suppliers', db: db.suppliers },
+        { name: 'expenses', db: db.expenses },
+        { name: 'audit_logs', db: db.audit_logs }
       ];
 
       for (const table of tables) {
         try {
-          // 1. PULL & PURGE (Sync Shield V4.1)
-          let pullQuery = supabase.from(table.name).select('*');
+          // 1. PULL & PURGE (Tenant Restricted)
+          let pullQuery = supabase
+            .from(table.name)
+            .select('*')
+            .eq('tenant_id', tenant.id);
           
-          // CRITICAL: If lastSyncTime is null (e.g. after cache clear), pullQuery gets EVERYTHING
           if (!isForce && lastSyncTime) {
             pullQuery = pullQuery.gt('updated_at', lastSyncTime);
           }
@@ -64,8 +70,8 @@ export function SyncEngine() {
           const { data: cloudChanges, error: pullError } = await pullQuery;
           
           if (pullError) {
-            console.warn(`Sync Loophole Bypassed: [${table.name}] skipped. Table might be missing in Cloud.`);
-            continue; // CRITICAL: Skip missing tables to prevent app crash
+            console.error(`Sync Pull Error on [${table.name}]:`, pullError.message);
+            continue;
           }
 
           if (cloudChanges && cloudChanges.length > 0) {
@@ -87,13 +93,16 @@ export function SyncEngine() {
             }
           }
 
-          // 2. PUSH (Safe Logic)
-          const toPush = await (table.db as any).where('sync_status').equals('pending').toArray();
+          // 2. PUSH (Tenant Injected)
+          const toPush = await (table.db as any)
+            .where('sync_status').equals('pending')
+            .filter((item: any) => item.tenant_id === tenant.id)
+            .toArray();
 
           if (toPush.length > 0) {
             const cleanedPush = toPush.map((item: any) => {
               const { sync_status, ...rest } = item;
-              return rest;
+              return { ...rest, tenant_id: tenant.id }; // Ensure tenant_id is present
             });
 
             const { error: pushError } = await supabase.from(table.name).upsert(cleanedPush);
@@ -105,13 +114,13 @@ export function SyncEngine() {
             }
           }
         } catch (tableErr) {
-          console.error(`Resilience Engine: Error in table [${table.name}]`, tableErr);
+          console.error(`Resilience Engine Error [${table.name}]`, tableErr);
         }
       }
 
       const now = new Date().toISOString();
       setLastSyncTime(now);
-      localStorage.setItem('last_db_sync', now);
+      localStorage.setItem(`last_db_sync_${tenant.id}`, now);
       window.dispatchEvent(new CustomEvent('database-synced', { detail: now }));
       window.dispatchEvent(new CustomEvent('sync-status', { detail: 'idle' }));
 

@@ -122,7 +122,8 @@ export function EWayBillModal({ isOpen, onClose, viewOnlyData }: EWayBillModalPr
         updated_at: now,
         is_deleted: 0,
         sync_status: 'pending',
-        version_clock: Date.now()
+        version_clock: Date.now(),
+        tenant_id: 'default'
       });
     } catch { toast.error("Failed to sync bill"); }
   };
