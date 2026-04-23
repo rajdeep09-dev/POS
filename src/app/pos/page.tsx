@@ -40,6 +40,7 @@ interface CartItem extends Variant {
 
 export default function POS() {
   const { activeShift } = useShift();
+  const { tenant } = useTenant();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi" | "card" | "split" | "khata">("cash");
@@ -246,7 +247,7 @@ export default function POS() {
           upi_amount: upiAmt,
           card_amount: cardAmt,
           tax_amount: 0, // Simplified for this pass
-          invoice_no: `INV-${Date.now().toString().slice(-6)}`,
+          invoice_no: `${tenant?.settings?.invoice_prefix || 'INV'}-${Date.now().toString().slice(-6)}`,
           status: 'completed',
           date: now, 
           updated_at: now, 

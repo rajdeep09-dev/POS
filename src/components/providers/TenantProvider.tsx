@@ -10,6 +10,7 @@ interface Tenant {
   logo_url: string | null;
   theme_color: string;
   active_features: string[];
+  settings: any;
 }
 
 interface TenantContextType {

@@ -58,8 +58,27 @@ export async function completeOnboarding(prevState: unknown, formData: FormData)
   }
 
   const businessName = formData.get('business_name') as string;
+  const industry = formData.get('industry') as string;
+  const phone = formData.get('phone') as string;
+  const address = formData.get('address') as string;
+  const gstin = formData.get('gstin') as string;
   const themeColor = formData.get('theme_color') as string;
+  const invoicePrefix = formData.get('invoice_prefix') as string || 'INV';
+  const printerWidth = formData.get('printer_width') as string || '80mm';
   const features = formData.getAll('features') as string[];
+
+  const settings = {
+    industry,
+    phone,
+    address,
+    gstin,
+    is_gst_enabled: !!gstin,
+    invoice_prefix: invoicePrefix,
+    printer_width: printerWidth,
+    default_tax: 0,
+    currency: 'INR',
+    terms: 'Thank you for your business!'
+  };
 
   // 1. Create Tenant
   const { data: tenant, error: tenantError } = await supabase
@@ -68,6 +87,7 @@ export async function completeOnboarding(prevState: unknown, formData: FormData)
       business_name: businessName,
       theme_color: themeColor,
       active_features: features,
+      settings: settings,
       owner_id: user.id
     })
     .select()
@@ -77,7 +97,16 @@ export async function completeOnboarding(prevState: unknown, formData: FormData)
     return { error: tenantError.message };
   }
 
-  // 2. Update Profile with tenant_id
+  // 2. Create default branch
+  await supabase.from('branches').insert({
+    tenant_id: tenant.id,
+    name: 'Main Branch',
+    address: address,
+    phone: phone,
+    is_active: true
+  });
+
+  // 3. Update Profile with tenant_id
   const { error: profileError } = await supabase
     .from('profiles')
     .update({ tenant_id: tenant.id })

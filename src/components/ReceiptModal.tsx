@@ -46,11 +46,19 @@ interface ReceiptModalProps {
   onGenerateGst?: (items: any[]) => void;
 }
 
+import { useTenant } from "@/components/providers/TenantProvider";
+
 export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }: ReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const { tenant } = useTenant();
 
   if (!isOpen || !saleData?.id) return null;
+
+  const businessName = tenant?.business_name || "Vyapar POS";
+  const businessAddress = tenant?.settings?.address || "";
+  const businessPhone = tenant?.settings?.phone || "";
+  const businessLogo = tenant?.logo_url || "/joyramlogo.png";
 
   const handleSendToWhatsApp = async () => {
     const rawPhone = prompt("Enter Customer WhatsApp Number (e.g. 9876543210):");
@@ -74,7 +82,7 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
       const publicUrl = await uploadCompressedToCloudinary(file);
 
       // 4. Open WhatsApp with Image URL
-      const text = `Hello! Here is your bill from Joy Ram Steel for ₹${saleData.total.toLocaleString()}.\n\nView Bill Image: ${publicUrl}\n\nThank you!`;
+      const text = `Hello! Here is your bill from ${businessName} for ₹${saleData.total.toLocaleString()}.\n\nView Bill Image: ${publicUrl}\n\nThank you!`;
       window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
       toast.success("Handoff to WhatsApp successful", { id });
 
@@ -91,7 +99,7 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
     try {
       const dataUrl = await toJpeg(receiptRef.current, { pixelRatio: 1.5, quality: 0.8, backgroundColor: '#ffffff' });
       const link = document.createElement('a');
-      link.download = `JoyRamSteel-Bill-${saleData.id.slice(0, 8)}.jpg`;
+      link.download = `${businessName.replace(/\s+/g, '')}-Bill-${saleData.id.slice(0, 8)}.jpg`;
       link.href = dataUrl;
       link.click();
       toast.success("Bill downloaded as Image");
@@ -109,7 +117,7 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      pdf.save(`JoyRamSteel-Bill-${saleData.id.slice(0, 8)}.pdf`);
+      pdf.save(`${businessName.replace(/\s+/g, '')}-Bill-${saleData.id.slice(0, 8)}.pdf`);
       toast.success("Bill downloaded as PDF");
     } catch (err) {
       toast.error("Failed to generate PDF");
@@ -149,14 +157,14 @@ export function ReceiptModal({ isOpen, onClose, saleData, items, onGenerateGst }
           >
             <div className="text-center space-y-1 mb-8 border-b border-zinc-100 pb-6">
               <div className="mx-auto w-16 h-16 rounded-full overflow-hidden mb-3 border-2 border-zinc-50 shadow-md">
-                <img src="/joyramlogo.png" alt="Logo" className="w-full h-full object-cover" />
+                <img src={businessLogo} alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <h2 className="text-3xl font-black tracking-tighter uppercase italic">Joy Ram Steel</h2>
-              <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">All types of Kitchen Ware</p>
+              <h2 className="text-3xl font-black tracking-tighter uppercase italic">{businessName}</h2>
+              {tenant?.settings?.industry && <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">{tenant.settings.industry}</p>}
               <div className="pt-3 space-y-0.5">
-                <p className="text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-1.5"><MapPin className="h-3 w-3" /> Dhajanagar, Udaipur, Tripura</p>
-                <p className="text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-1.5"><Phone className="h-3 w-3" /> 8837241225 / 9862743854</p>
-                <p className="text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-1.5"><Mail className="h-3 w-3" /> surajdebnath149@gmail.com</p>
+                {businessAddress && <p className="text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-1.5"><MapPin className="h-3 w-3" /> {businessAddress}</p>}
+                {businessPhone && <p className="text-[10px] font-bold text-zinc-400 flex items-center justify-center gap-1.5"><Phone className="h-3 w-3" /> {businessPhone}</p>}
+                {tenant?.settings?.gstin && <p className="text-[10px] font-black text-primary flex items-center justify-center gap-1.5 mt-2">GSTIN: {tenant.settings.gstin}</p>}
               </div>
             </div>
 
