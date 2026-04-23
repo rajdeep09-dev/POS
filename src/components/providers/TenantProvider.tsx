@@ -22,6 +22,8 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
+import { Loader2 } from 'lucide-react';
+
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [role, setRole] = useState<'admin' | 'manager' | 'cashier' | null>(null);
@@ -32,6 +34,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function loadTenant() {
+      setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -49,7 +52,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError || !profile?.tenant_id) {
         console.error('No tenant associated with user');
-        if (!pathname.includes('/onboarding')) {
+        if (!pathname.includes('/onboarding') && !pathname.includes('/login') && !pathname.includes('/signup')) {
           router.push('/onboarding');
         }
         setIsLoading(false);
@@ -76,7 +79,6 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       // 3. Apply Dynamic Theming
       if (tenantData.theme_color) {
         document.documentElement.style.setProperty('--brand-primary', tenantData.theme_color);
-        // Generate a slightly darker/lighter version if needed, or just use opacity
         document.documentElement.style.setProperty('--brand-primary-foreground', '#ffffff');
       }
 
@@ -89,6 +91,16 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const hasFeature = (feature: string) => {
     return tenant?.active_features?.includes(feature) ?? false;
   };
+
+  // Prevent app render while checking session/tenant
+  if (isLoading && !pathname.includes('/login') && !pathname.includes('/signup')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-50 gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 animate-pulse">Initializing Terminal...</p>
+      </div>
+    );
+  }
 
   return (
     <TenantContext.Provider value={{ tenant, role, userId, isLoading, hasFeature }}>
